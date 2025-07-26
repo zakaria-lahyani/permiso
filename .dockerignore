@@ -126,7 +126,6 @@ docker-compose*.yml
 # Development scripts
 scripts/
 DOCKER_GUIDE.md
-README*.md
 ARCHITECTURE*.md
 PROJECT_STRUCTURE*.md
 IMPLEMENTATION_STATUS.md

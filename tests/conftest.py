@@ -1,4 +1,4 @@
-"""Pytest configuration for Docker environment - uses existing services."""
+"""Pytest configuration using real Docker containers for database and Redis setup."""
 
 import asyncio
 import pytest
@@ -8,6 +8,7 @@ from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import text
+import os
 
 from app.main import app
 from app.config.database import get_db
@@ -23,20 +24,30 @@ from app.core.password import hash_password
 from app.core.jwt import jwt_service
 
 
-# Test settings for Docker environment
+# Test settings fixture using real Docker containers
 @pytest.fixture(scope="session")
 def test_settings() -> Settings:
-    """Create test settings for Docker environment."""
+    """Create test settings using real Docker containers."""
+    # Use environment variables with container-aware defaults
+    database_url = os.getenv(
+        "TEST_DATABASE_URL",
+        "postgresql+asyncpg://keystone_test:keystone_test_password@postgres-test:5432/keystone_test"
+    )
+    redis_url = os.getenv(
+        "TEST_REDIS_URL",
+        "redis://redis-test:6379/0"
+    )
+    
     return Settings(
         ENVIRONMENT="testing",
         DEBUG=True,
-        # Use existing test database container
-        DATABASE_URL="postgresql+asyncpg://keystone_test:keystone_test_password@postgres-test:5432/keystone_test",
-        # Use existing test Redis container
-        REDIS_URL="redis://redis-test:6379/0",
+        DATABASE_URL=database_url,
+        REDIS_URL=redis_url,
         JWT_SECRET_KEY="test-secret-key-for-testing-only",
         ACCESS_TOKEN_EXPIRE_MINUTES=15,
         REFRESH_TOKEN_EXPIRE_DAYS=30,
+        DATABASE_ECHO=False,
+        REDIS_DECODE_RESPONSES=True,
     )
 
 
@@ -49,15 +60,28 @@ def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:
     loop.close()
 
 
-# Database engine fixture - connects to existing container
+# Database engine fixture using real Docker containers
 @pytest.fixture(scope="session")
 async def test_engine(test_settings: Settings):
-    """Create test database engine using existing container."""
-    engine = create_async_engine(test_settings.DATABASE_URL, echo=False)
+    """Create test database engine using real Docker containers."""
+    engine = create_async_engine(
+        test_settings.DATABASE_URL,
+        echo=test_settings.DATABASE_ECHO,
+        pool_pre_ping=True,
+        pool_recycle=300,
+    )
     
-    # Create all tables
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    # Wait for database to be ready and create all tables
+    max_retries = 60
+    for attempt in range(max_retries):
+        try:
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+            break
+        except Exception as e:
+            if attempt == max_retries - 1:
+                raise e
+            await asyncio.sleep(2)
     
     yield engine
     
@@ -65,18 +89,39 @@ async def test_engine(test_settings: Settings):
     await engine.dispose()
 
 
-# Redis client fixture - connects to existing container
+# Redis client fixture using real Docker containers
 @pytest.fixture(scope="session") 
 async def test_redis_client(test_settings: Settings) -> AsyncGenerator[RedisClient, None]:
-    """Create test Redis client using existing container."""
+    """Create test Redis client using real Docker containers."""
     redis_client = RedisClient()
     
-    # Update the Redis URL for testing
+    # Configure Redis client for testing
     import redis.asyncio as redis
-    redis_client._redis = redis.from_url(test_settings.REDIS_URL, decode_responses=True)
+    redis_client._redis = redis.from_url(
+        test_settings.REDIS_URL, 
+        decode_responses=test_settings.REDIS_DECODE_RESPONSES,
+        retry_on_timeout=True,
+        socket_keepalive=True,
+    )
+    
+    # Wait for Redis to be ready
+    max_retries = 30
+    for attempt in range(max_retries):
+        try:
+            await redis_client.ping()
+            break
+        except Exception as e:
+            if attempt == max_retries - 1:
+                raise e
+            await asyncio.sleep(1)
     
     yield redis_client
     
+    # Cleanup
+    try:
+        await redis_client.flushdb()
+    except Exception:
+        pass
     await redis_client.disconnect()
 
 
@@ -85,7 +130,11 @@ async def test_redis_client(test_settings: Settings) -> AsyncGenerator[RedisClie
 async def db_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
     """Create database session for testing."""
     AsyncSessionLocal = sessionmaker(
-        test_engine, class_=AsyncSession, expire_on_commit=False
+        test_engine, 
+        class_=AsyncSession, 
+        expire_on_commit=False,
+        autoflush=False,
+        autocommit=False,
     )
     
     async with AsyncSessionLocal() as session:
@@ -363,6 +412,20 @@ async def cleanup_database(db_session: AsyncSession):
         await db_session.rollback()
 
 
+# Redis cleanup fixture
+@pytest.fixture(autouse=True)
+async def cleanup_redis(test_redis_client: RedisClient):
+    """Clean up Redis after each test."""
+    yield
+    
+    try:
+        # Clear all Redis data
+        await test_redis_client.flushdb()
+    except Exception:
+        # If cleanup fails, continue
+        pass
+
+
 # Pytest configuration
 def pytest_configure(config):
     """Configure pytest."""
@@ -377,6 +440,9 @@ def pytest_configure(config):
     )
     config.addinivalue_line(
         "markers", "slow: mark test as slow running"
+    )
+    config.addinivalue_line(
+        "markers", "performance: mark test as performance test"
     )
 
 

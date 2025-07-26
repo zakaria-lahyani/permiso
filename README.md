@@ -1,71 +1,89 @@
-# 🔐 Keystone Authentication System Documentation
+# Keystone Authentication System
 
-A comprehensive, FastAPI-based centralized authentication and authorization system designed for enterprise-grade security and scalability.
+A centralized authentication and authorization system built with FastAPI, providing secure user management, role-based access control, and JWT token authentication.
 
-## 📚 Documentation Structure
+## Features
 
-### 🚀 Getting Started
-- [Installation Guide](docs/getting-started/installation.md) - Set up the development environment
-- [Quick Start](docs/getting-started/quick-start.md) - Get up and running in minutes
-- [Configuration](docs/getting-started/configuration.md) - Environment and application configuration
+- **User Management**: Complete user lifecycle management with secure password handling
+- **Role-Based Access Control**: Flexible role and permission system
+- **JWT Authentication**: Secure token-based authentication with refresh tokens
+- **Service Client Authentication**: Support for service-to-service authentication
+- **Redis Caching**: High-performance caching and session management
+- **PostgreSQL Database**: Robust data persistence with async support
+- **Comprehensive Testing**: Full test suite with Docker containerization
+- **API Documentation**: Auto-generated OpenAPI/Swagger documentation
 
-### 🔌 API Documentation
-- [Authentication API](docs/api/authentication.md) - Login, logout, token management
-- [User Management API](api/users.md) - User CRUD operations and profile management
-- [Admin API](api/admin.md) - Administrative operations
-- [Service Clients API](api/service-clients.md) - Service-to-service authentication
-- [OpenAPI Specification](api/openapi.json) - Complete API schema
+## Quick Start
 
-### 🏗️ Architecture
-- [System Overview](docs/architecture/overview.md) - High-level architecture and components
-- [Database Schema](architecture/database-schema.md) - Data models and relationships
-- [Security Model](architecture/security-model.md) - Authentication and authorization design
-- [Deployment Architecture](architecture/deployment.md) - Production deployment strategies
+### Using Docker (Recommended)
 
-### 👨‍💻 Development
-- [Testing Guide](docs/development/testing.md) - Running and writing tests
-- [Contributing Guidelines](development/contributing.md) - How to contribute to the project
-- [Troubleshooting](development/troubleshooting.md) - Common issues and solutions
-- [Development Setup](development/setup.md) - Local development environment
+1. **Run tests with Docker containers:**
+   ```bash
+   # Windows PowerShell
+   .\run-tests-docker.ps1
+   
+   # Windows Command Prompt
+   run_tests.bat
+   
+   # Direct Python execution
+   python run_tests.py
+   ```
 
-### 🔒 Security
-- [Security Guide](docs/security/security-guide.md) - Security best practices and features
-- [Deployment Security](security/deployment-security.md) - Production security considerations
-- [Vulnerability Assessment](security/vulnerability-assessment.md) - Known issues and mitigations
+2. **Start the development environment:**
+   ```bash
+   docker compose up -d keystone-dev
+   ```
 
-## 🎯 Quick Navigation
+3. **Run the application:**
+   ```bash
+   docker compose up -d keystone-app
+   ```
 
-| I want to... | Go to |
-|---------------|-------|
-| Set up the project locally | [Installation Guide](docs/getting-started/installation.md) |
-| Understand the API endpoints | [API Documentation](api/) |
-| Learn about the architecture | [System Overview](docs/architecture/overview.md) |
-| Run tests | [Testing Guide](docs/development/testing.md) |
-| Deploy to production | [Deployment Guide](architecture/deployment.md) |
-| Report a security issue | [Security Guide](docs/security/security-guide.md) |
+### Local Development
 
-## 🔧 Technology Stack
+1. **Install dependencies:**
+   ```bash
+   poetry install
+   ```
 
-- **Framework**: FastAPI 0.104+
-- **Database**: PostgreSQL 15+ with SQLAlchemy 2.0
-- **Cache**: Redis 7+
-- **Authentication**: JWT with Argon2 password hashing
-- **Testing**: pytest with testcontainers
-- **Documentation**: OpenAPI/Swagger
+2. **Set up environment variables:**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your configuration
+   ```
 
-## 📊 Project Status
+3. **Run tests:**
+   ```bash
+   poetry run pytest
+   ```
 
-- **Version**: 1.0.0
-- **Status**: Active Development
-- **Python**: 3.11+
-- **License**: MIT
+## Architecture
 
-## 🤝 Support
+The system is built with a modular architecture:
 
-- **Issues**: [GitHub Issues](https://github.com/your-org/keystone/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-org/keystone/discussions)
-- **Security**: See [Security Guide](docs/security/security-guide.md) for reporting vulnerabilities
+- **API Layer**: FastAPI endpoints with automatic validation
+- **Service Layer**: Business logic and data processing
+- **Data Layer**: SQLAlchemy models with async PostgreSQL
+- **Authentication**: JWT-based with role and scope validation
+- **Caching**: Redis for session management and performance
 
----
+## Testing
 
-**Built with ❤️ for secure, scalable authentication**
+The project includes comprehensive testing with Docker containerization:
+
+- **Unit Tests**: Individual component testing
+- **Integration Tests**: Database and Redis integration
+- **Security Tests**: Authentication and authorization validation
+- **Performance Tests**: Load and stress testing
+
+## Documentation
+
+- [Installation Guide](docs/getting-started/installation.md)
+- [Configuration](docs/getting-started/configuration.md)
+- [API Documentation](docs/api/)
+- [Security Guide](docs/security/security-guide.md)
+- [Development Guide](docs/development/)
+
+## License
+
+This project is licensed under the MIT License.

@@ -11,6 +11,7 @@ from app.models.base import BaseModel
 if TYPE_CHECKING:
     from app.models.role import Role
     from app.models.refresh_token import RefreshToken
+    from app.models.session import UserSession
 
 
 class User(BaseModel):
@@ -152,6 +153,12 @@ class User(BaseModel):
     )
     refresh_tokens: Mapped[List["RefreshToken"]] = relationship(
         "RefreshToken",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
+    sessions: Mapped[List["UserSession"]] = relationship(
+        "UserSession",
         back_populates="user",
         cascade="all, delete-orphan",
         lazy="select",

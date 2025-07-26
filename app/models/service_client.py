@@ -151,6 +151,16 @@ class ServiceClient(BaseModel):
             True if client is active and can authenticate
         """
         return self.is_active
+    
+    @property
+    def enabled(self) -> bool:
+        """
+        Check if client is enabled (alias for is_active).
+        
+        Returns:
+            True if client is enabled/active
+        """
+        return self.is_active
 
     @property
     def supports_refresh_tokens(self) -> bool:

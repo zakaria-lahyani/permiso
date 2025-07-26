@@ -2,11 +2,12 @@
 
 import json
 from typing import Any, Optional
+from functools import lru_cache
 
 import redis.asyncio as redis
 from redis.asyncio import Redis
 
-from app.config.settings import settings
+from app.config.settings import settings, get_settings
 
 
 class RedisClient:
@@ -285,6 +286,90 @@ class RedisClient:
 
 # Global Redis client instance
 redis_client = RedisClient()
+
+
+class RedisManager:
+    """Redis manager with additional functionality."""
+    
+    def __init__(self, settings=None):
+        if settings:
+            self.client = redis.from_url(
+                settings.redis_url,
+                decode_responses=True,
+                retry_on_timeout=True,
+                socket_keepalive=True,
+            )
+        else:
+            from app.config.settings import settings as app_settings
+            self.client = redis.from_url(
+                app_settings.REDIS_URL,
+                decode_responses=True,
+                retry_on_timeout=True,
+                socket_keepalive=True,
+            )
+    
+    async def set(self, key: str, value: Any, ex: Optional[int] = None) -> bool:
+        """Set a key-value pair."""
+        if isinstance(value, (dict, list)):
+            value = json.dumps(value)
+        return await self.client.set(key, value, ex=ex)
+    
+    async def get(self, key: str) -> Optional[Any]:
+        """Get a value by key."""
+        value = await self.client.get(key)
+        if value is None:
+            return None
+        try:
+            return json.loads(value)
+        except (json.JSONDecodeError, TypeError):
+            return value
+    
+    async def exists(self, key: str) -> bool:
+        """Check if key exists."""
+        return bool(await self.client.exists(key))
+    
+    async def delete(self, *keys: str) -> int:
+        """Delete keys."""
+        return await self.client.delete(*keys)
+    
+    async def ttl(self, key: str) -> int:
+        """Get TTL for key."""
+        return await self.client.ttl(key)
+    
+    async def health_check(self) -> bool:
+        """Check Redis health."""
+        try:
+            return await self.client.ping()
+        except Exception:
+            return False
+    
+    async def close(self):
+        """Close Redis connection."""
+        await self.client.aclose()
+    
+    async def __aenter__(self):
+        """Async context manager entry."""
+        return self
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit."""
+        await self.close()
+
+
+def create_redis_client(redis_url: str):
+    """Create a Redis client with the given URL."""
+    return redis.from_url(
+        redis_url,
+        decode_responses=True,
+        retry_on_timeout=True,
+        socket_keepalive=True,
+    )
+
+
+@lru_cache()
+def get_redis_manager() -> RedisManager:
+    """Get Redis manager instance."""
+    return RedisManager()
 
 
 async def get_redis() -> RedisClient:

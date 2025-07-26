@@ -73,11 +73,17 @@ async def root():
     }
 
 
-# Include routers (will be added as we implement endpoints)
-# from app.api.v1.auth import router as auth_router
-# from app.api.v1.users import router as users_router
-# from app.api.v1.clients import router as clients_router
+# Include API routers
+from app.api.v1.auth import router as auth_router
+from app.api.v1.users import router as users_router
+from app.api.v1.roles import router as roles_router
+from app.api.v1.service_clients import router as service_clients_router
+from app.api.v1.admin import router as admin_router
+from app.api.v1.sessions import router as sessions_router
 
-# app.include_router(auth_router, prefix="/api/v1/auth", tags=["authentication"])
-# app.include_router(users_router, prefix="/api/v1/users", tags=["users"])
-# app.include_router(clients_router, prefix="/api/v1/clients", tags=["clients"])
+app.include_router(auth_router, prefix="/api/v1/auth", tags=["authentication"])
+app.include_router(users_router, prefix="/api/v1/users", tags=["users"])
+app.include_router(roles_router, prefix="/api/v1/roles", tags=["roles"])
+app.include_router(service_clients_router, prefix="/api/v1/service-clients", tags=["service-clients"])
+app.include_router(admin_router, prefix="/api/v1/admin", tags=["administration"])
+app.include_router(sessions_router, prefix="/api/v1/sessions", tags=["sessions"])
