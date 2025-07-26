@@ -1,0 +1,213 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: keystone-postgres
+    environment:
+      POSTGRES_DB: keystone
+      POSTGRES_USER: keystone
+      POSTGRES_PASSWORD: keystone_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keystone -d keystone"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - keystone-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: keystone-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - keystone-network
+
+  # Test Database (separate from main)
+  postgres-test:
+    image: postgres:15-alpine
+    container_name: keystone-postgres-test
+    environment:
+      POSTGRES_DB: keystone_test
+      POSTGRES_USER: keystone_test
+      POSTGRES_PASSWORD: keystone_test_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keystone_test -d keystone_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - keystone-network
+
+  # Test Redis (separate from main)
+  redis-test:
+    image: redis:7-alpine
+    container_name: keystone-redis-test
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_test_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - keystone-network
+
+  # Development/Test Runner Container
+  keystone-dev:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    container_name: keystone-dev
+    volumes:
+      # Mount the entire project for live development
+      - .:/app
+      # Mount Python cache to speed up installs
+      - python_cache:/root/.cache/pip
+      - poetry_cache:/root/.cache/pypoetry
+    working_dir: /app
+    environment:
+      # Development environment
+      ENVIRONMENT: development
+      DEBUG: "true"
+      
+      # Database configuration
+      DATABASE_URL: postgresql+asyncpg://keystone:keystone_password@postgres:5432/keystone
+      
+      # Test database configuration
+      TEST_DATABASE_URL: postgresql+asyncpg://keystone_test:keystone_test_password@postgres-test:5432/keystone_test
+      
+      # Redis configuration
+      REDIS_URL: redis://redis:6379/0
+      TEST_REDIS_URL: redis://redis-test:6379/0
+      
+      # JWT configuration
+      JWT_SECRET_KEY: dev-secret-key-change-in-production
+      ACCESS_TOKEN_EXPIRE_MINUTES: 15
+      REFRESH_TOKEN_EXPIRE_DAYS: 30
+      
+      # Python configuration
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: 1
+      PYTHONDONTWRITEBYTECODE: 1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    networks:
+      - keystone-network
+    # Keep container running for interactive development
+    tty: true
+    stdin_open: true
+
+  # Test Runner Container (for CI/automated testing)
+  keystone-test:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.test
+    container_name: keystone-test
+    volumes:
+      - .:/app
+      - test_reports:/app/test-reports
+      - coverage_reports:/app/htmlcov
+    working_dir: /app
+    environment:
+      ENVIRONMENT: testing
+      DEBUG: "true"
+      DATABASE_URL: postgresql+asyncpg://keystone_test:keystone_test_password@postgres-test:5432/keystone_test
+      REDIS_URL: redis://redis-test:6379/1
+      JWT_SECRET_KEY: test-secret-key-for-testing-only
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: 1
+      PYTHONDONTWRITEBYTECODE: 1
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    networks:
+      - keystone-network
+    profiles:
+      - test
+
+  # Application Container (for production-like testing)
+  keystone-app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.app
+    container_name: keystone-app
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    working_dir: /app
+    environment:
+      ENVIRONMENT: development
+      DEBUG: "true"
+      DATABASE_URL: postgresql+asyncpg://keystone:keystone_password@postgres:5432/keystone
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET_KEY: dev-secret-key-change-in-production
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: 1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - keystone-network
+    profiles:
+      - app
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  postgres_test_data:
+    driver: local
+  redis_test_data:
+    driver: local
+  python_cache:
+    driver: local
+  poetry_cache:
+    driver: local
+  test_reports:
+    driver: local
+  coverage_reports:
+    driver: local
+
+networks:
+  keystone-network:
+    driver: bridge
