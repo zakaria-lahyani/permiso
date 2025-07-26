@@ -42,6 +42,79 @@ from app.schemas.user import (
 router = APIRouter()
 
 
+@router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def register_user(
+    user_data: UserCreate,
+    db = Depends(get_db)
+):
+    """
+    Register a new user account.
+    
+    Creates a new user with the provided information.
+    Public endpoint - no authentication required.
+    """
+    try:
+        # Handle async generator properly
+        try:
+            if hasattr(db, '__anext__'):
+                db_session = await db.__anext__()
+            else:
+                db_session = db
+        except StopAsyncIteration:
+            from app.config.database import get_db
+            async_gen = get_db()
+            db_session = await async_gen.__anext__()
+            
+        # Check if username already exists
+        existing_user = await User.get_by_username(db_session, user_data.username)
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={"error": "conflict", "error_description": "Username already exists"}
+            )
+        
+        # Check if email already exists
+        existing_email = await User.get_by_email(db_session, user_data.email)
+        if existing_email:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={"error": "conflict", "error_description": "Email already exists"}
+            )
+        
+        # Hash password
+        password_hash = hash_password(user_data.password)
+        
+        # Create user
+        user = User(
+            username=user_data.username,
+            email=user_data.email,
+            password_hash=password_hash,
+            first_name=user_data.first_name,
+            last_name=user_data.last_name,
+            display_name=user_data.display_name,
+            bio=user_data.bio,
+            is_active=True,  # New users are active by default
+            is_verified=False  # Email verification required
+        )
+        
+        db_session.add(user)
+        await db_session.commit()
+        await db_session.refresh(user)
+        
+        return UserResponse.from_orm(user)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        if hasattr(db_session, 'rollback'):
+            await db_session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={"error": "internal_error", "error_description": str(e)}
+        )
+
+
+@router.get("", response_model=UserListResponse)
 @router.get("/", response_model=UserListResponse)
 async def list_users(
     search: Optional[str] = Query(None, description="Search term for username, email, or name"),
@@ -51,7 +124,7 @@ async def list_users(
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(20, ge=1, le=100, description="Items per page"),
     current_user = Depends(require_admin()),
-    db: AsyncSession = Depends(get_db)
+    db = Depends(get_db)
 ):
     """
     List users with pagination and filtering.
@@ -96,7 +169,18 @@ async def list_users(
         if role_id is not None:
             count_query = count_query.select_from(User).join(User.roles).where(Role.id == role_id)
         
-        total_result = await db.execute(count_query)
+        # Handle async generator properly
+        try:
+            if hasattr(db, '__anext__'):
+                db_session = await db.__anext__()
+            else:
+                db_session = db
+        except StopAsyncIteration:
+            from app.config.database import get_db
+            async_gen = get_db()
+            db_session = await async_gen.__anext__()
+            
+        total_result = await db_session.execute(count_query)
         total = total_result.scalar()
         
         # Apply pagination
@@ -104,7 +188,7 @@ async def list_users(
         query = query.offset(offset).limit(per_page)
         
         # Execute query
-        result = await db.execute(query)
+        result = await db_session.execute(query)
         users = result.scalars().all()
         
         # Calculate pages
@@ -125,11 +209,12 @@ async def list_users(
         )
 
 
+@router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 @router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user(
     user_data: UserCreate,
     current_user = Depends(require_admin()),
-    db: AsyncSession = Depends(get_db)
+    db = Depends(get_db)
 ):
     """
     Create a new user.
@@ -137,13 +222,24 @@ async def create_user(
     Requires admin role.
     """
     try:
+        # Handle async generator properly
+        try:
+            if hasattr(db, '__anext__'):
+                db_session = await db.__anext__()
+            else:
+                db_session = db
+        except StopAsyncIteration:
+            from app.config.database import get_db
+            async_gen = get_db()
+            db_session = await async_gen.__anext__()
+            
         # Check if username already exists
-        existing_user = await User.get_by_username(db, user_data.username)
+        existing_user = await User.get_by_username(db_session, user_data.username)
         if existing_user:
             raise ConflictError("Username already exists")
         
         # Check if email already exists
-        existing_email = await User.get_by_email(db, user_data.email)
+        existing_email = await User.get_by_email(db_session, user_data.email)
         if existing_email:
             raise ConflictError("Email already exists")
         
@@ -163,19 +259,19 @@ async def create_user(
             is_verified=user_data.is_verified
         )
         
-        db.add(user)
-        await db.flush()  # Get user ID
+        db_session.add(user)
+        await db_session.flush()  # Get user ID
         
         # Assign roles if provided
         if user_data.role_ids:
-            roles_result = await db.execute(
+            roles_result = await db_session.execute(
                 select(Role).where(Role.id.in_(user_data.role_ids))
             )
             roles = roles_result.scalars().all()
             user.roles.extend(roles)
         
-        await db.commit()
-        await db.refresh(user)
+        await db_session.commit()
+        await db_session.refresh(user)
         
         return UserResponse.from_orm(user)
         
@@ -185,7 +281,8 @@ async def create_user(
             detail={"error": "conflict", "error_description": str(e)}
         )
     except Exception as e:
-        await db.rollback()
+        if hasattr(db_session, 'rollback'):
+            await db_session.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"error": "internal_error", "error_description": str(e)}
@@ -208,7 +305,7 @@ async def get_current_user_profile(
 async def update_current_user_profile(
     profile_data: UserProfileUpdate,
     current_user = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db = Depends(get_db)
 ):
     """
     Update current user's profile.
@@ -254,9 +351,9 @@ async def update_current_user_profile(
 
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(
-    user_id: int,
+    user_id: str,
     current_user = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db = Depends(get_db)
 ):
     """
     Get user by ID.
@@ -264,15 +361,28 @@ async def get_user(
     Users can view their own profile or admins can view any profile.
     """
     try:
+        # Handle async generator properly
+        try:
+            if hasattr(db, '__anext__'):
+                # db is an async generator, get the actual session
+                db_session = await db.__anext__()
+            else:
+                db_session = db
+        except StopAsyncIteration:
+            # If the generator is exhausted, we need to get a new one
+            from app.config.database import get_db
+            async_gen = get_db()
+            db_session = await async_gen.__anext__()
+            
         # Check if user is accessing their own profile or is admin
-        if user_id != current_user.id and not await current_user.is_admin():
+        if user_id != str(current_user.id) and not await current_user.is_admin():
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail={"error": "forbidden", "error_description": "Access denied"}
             )
         
         # Get user
-        result = await db.execute(
+        result = await db_session.execute(
             select(User).options(selectinload(User.roles)).where(User.id == user_id)
         )
         user = result.scalar_one_or_none()
@@ -288,6 +398,9 @@ async def get_user(
             detail={"error": "not_found", "error_description": "User not found"}
         )
     except Exception as e:
+        import traceback
+        print(f"Exception in get_user: {e}")
+        print(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"error": "internal_error", "error_description": str(e)}
@@ -296,10 +409,10 @@ async def get_user(
 
 @router.put("/{user_id}", response_model=UserResponse)
 async def update_user(
-    user_id: int,
+    user_id: str,
     user_data: UserUpdate,
     current_user = Depends(require_admin()),
-    db: AsyncSession = Depends(get_db)
+    db = Depends(get_db)
 ):
     """
     Update user by ID.
@@ -369,9 +482,9 @@ async def update_user(
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(
-    user_id: int,
+    user_id: str,
     current_user = Depends(require_admin()),
-    db: AsyncSession = Depends(get_db)
+    db = Depends(get_db)
 ):
     """
     Delete user by ID.
@@ -412,10 +525,10 @@ async def delete_user(
 
 @router.put("/{user_id}/password")
 async def update_user_password(
-    user_id: int,
+    user_id: str,
     password_data: UserPasswordUpdate,
     current_user = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db = Depends(get_db)
 ):
     """
     Update user password.
@@ -468,10 +581,10 @@ async def update_user_password(
 
 @router.put("/{user_id}/roles", response_model=UserResponse)
 async def update_user_roles(
-    user_id: int,
+    user_id: str,
     role_data: UserRoleUpdate,
     current_user = Depends(require_admin()),
-    db: AsyncSession = Depends(get_db)
+    db = Depends(get_db)
 ):
     """
     Update user roles.
@@ -519,7 +632,7 @@ async def update_user_roles(
 @router.get("/stats/overview", response_model=UserStats)
 async def get_user_stats(
     current_user = Depends(require_admin()),
-    db: AsyncSession = Depends(get_db)
+    db = Depends(get_db)
 ):
     """
     Get user statistics overview.
@@ -574,7 +687,7 @@ async def get_user_stats(
 @router.post("/password-reset/request")
 async def request_password_reset(
     reset_request: PasswordResetRequest,
-    db: AsyncSession = Depends(get_db)
+    db = Depends(get_db)
 ):
     """
     Request password reset.
@@ -610,7 +723,7 @@ async def request_password_reset(
 @router.post("/password-reset/confirm")
 async def confirm_password_reset(
     reset_confirm: PasswordResetConfirm,
-    db: AsyncSession = Depends(get_db)
+    db = Depends(get_db)
 ):
     """
     Confirm password reset with token.
@@ -653,7 +766,7 @@ async def confirm_password_reset(
 @router.post("/email-verification/request")
 async def request_email_verification(
     verification_request: EmailVerificationRequest,
-    db: AsyncSession = Depends(get_db)
+    db = Depends(get_db)
 ):
     """
     Request email verification.
@@ -689,7 +802,7 @@ async def request_email_verification(
 @router.post("/email-verification/confirm")
 async def confirm_email_verification(
     verification_confirm: EmailVerificationConfirm,
-    db: AsyncSession = Depends(get_db)
+    db = Depends(get_db)
 ):
     """
     Confirm email verification with token.

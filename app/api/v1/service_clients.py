@@ -56,7 +56,7 @@ async def list_service_clients(
     scope_id: Optional[int] = Query(None, description="Filter by scope ID"),
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(20, ge=1, le=100, description="Items per page"),
-    current_user: User = Depends(require_admin()),
+    current_user = Depends(require_admin()),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -135,7 +135,7 @@ async def list_service_clients(
 @router.post("/", response_model=ServiceClientCreateResponse, status_code=status.HTTP_201_CREATED)
 async def create_service_client(
     client_data: ServiceClientCreate,
-    current_user: User = Depends(require_admin()),
+    current_user = Depends(require_admin()),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -212,7 +212,7 @@ async def create_service_client(
 @router.get("/{client_id}", response_model=ServiceClientResponse)
 async def get_service_client(
     client_id: str,
-    current_user: User = Depends(require_admin()),
+    current_user = Depends(require_admin()),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -248,7 +248,7 @@ async def get_service_client(
 async def update_service_client(
     client_id: str,
     client_data: ServiceClientUpdate,
-    current_user: User = Depends(require_admin()),
+    current_user = Depends(require_admin()),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -323,7 +323,7 @@ async def update_service_client(
 @router.delete("/{client_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_service_client(
     client_id: str,
-    current_user: User = Depends(require_admin()),
+    current_user = Depends(require_admin()),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -362,7 +362,7 @@ async def delete_service_client(
 async def rotate_client_secret(
     client_id: str,
     rotation_data: ServiceClientSecretRotation,
-    current_user: User = Depends(require_admin()),
+    current_user = Depends(require_admin()),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -415,7 +415,7 @@ async def rotate_client_secret(
 async def update_client_scopes(
     client_id: str,
     scope_data: ServiceClientScopeUpdate,
-    current_user: User = Depends(require_admin()),
+    current_user = Depends(require_admin()),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -465,7 +465,7 @@ async def update_client_scopes(
 @router.get("/{client_id}/permissions", response_model=ServiceClientPermissions)
 async def get_client_permissions(
     client_id: str,
-    current_user: User = Depends(require_admin()),
+    current_user = Depends(require_admin()),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -523,7 +523,7 @@ async def get_client_permissions(
 @router.get("/{client_id}/rate-limit", response_model=ServiceClientRateLimit)
 async def get_client_rate_limit(
     client_id: str,
-    current_user: User = Depends(require_admin()),
+    current_user = Depends(require_admin()),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -572,7 +572,7 @@ async def get_client_rate_limit(
 async def test_client_webhook(
     client_id: str,
     test_data: ServiceClientWebhookTest,
-    current_user: User = Depends(require_admin()),
+    current_user = Depends(require_admin()),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -629,7 +629,7 @@ async def test_client_webhook(
 
 @router.get("/stats/overview", response_model=ServiceClientStats)
 async def get_service_client_stats(
-    current_user: User = Depends(require_admin()),
+    current_user = Depends(require_admin()),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -678,7 +678,7 @@ async def get_service_client_stats(
 
 @router.get("/health/check", response_model=ServiceClientHealthResponse)
 async def check_service_clients_health(
-    current_user: User = Depends(require_admin()),
+    current_user = Depends(require_admin()),
     db: AsyncSession = Depends(get_db)
 ):
     """

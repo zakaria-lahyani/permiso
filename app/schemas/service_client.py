@@ -29,7 +29,7 @@ class ServiceClientCreate(ServiceClientBase):
     """Schema for creating a new service client."""
     client_id: Optional[str] = Field(None, description="Custom client ID (auto-generated if not provided)")
     client_secret: Optional[str] = Field(None, description="Custom client secret (auto-generated if not provided)")
-    scope_ids: Optional[List[int]] = Field(default=[], description="List of scope IDs to assign")
+    scope_ids: Optional[List[str]] = Field(default=[], description="List of scope IDs to assign")
     access_token_lifetime: int = Field(3600, ge=300, le=86400, description="Access token lifetime in seconds")
     refresh_token_lifetime: Optional[int] = Field(None, ge=3600, description="Refresh token lifetime in seconds")
     rate_limit_per_minute: int = Field(60, ge=1, le=1000, description="Requests per minute limit")
@@ -63,7 +63,7 @@ class ServiceClientUpdate(BaseModel):
     is_trusted: Optional[bool] = Field(None, description="Whether the client is trusted")
     contact_email: Optional[str] = Field(None, description="Contact email")
     website_url: Optional[str] = Field(None, max_length=500, description="Website URL")
-    scope_ids: Optional[List[int]] = Field(None, description="List of scope IDs to assign")
+    scope_ids: Optional[List[str]] = Field(None, description="List of scope IDs to assign")
     access_token_lifetime: Optional[int] = Field(None, ge=300, le=86400, description="Access token lifetime")
     refresh_token_lifetime: Optional[int] = Field(None, ge=3600, description="Refresh token lifetime")
     rate_limit_per_minute: Optional[int] = Field(None, ge=1, le=1000, description="Requests per minute limit")
@@ -89,7 +89,7 @@ class ServiceClientSecretRotation(BaseModel):
 
 class ScopeInfo(BaseModel):
     """Scope information for service client responses."""
-    id: int
+    id: str
     name: str
     description: Optional[str] = None
     resource: str
@@ -101,7 +101,7 @@ class ScopeInfo(BaseModel):
 
 class ServiceClientResponse(BaseModel):
     """Schema for service client response."""
-    id: int
+    id: str
     client_id: str
     name: str
     description: Optional[str] = None
@@ -149,14 +149,14 @@ class ServiceClientSearchParams(BaseModel):
     is_active: Optional[bool] = Field(None, description="Filter by active status")
     is_trusted: Optional[bool] = Field(None, description="Filter by trusted status")
     client_type: Optional[str] = Field(None, description="Filter by client type")
-    scope_id: Optional[int] = Field(None, description="Filter by scope ID")
+    scope_id: Optional[str] = Field(None, description="Filter by scope ID")
     page: int = Field(1, ge=1, description="Page number")
     per_page: int = Field(20, ge=1, le=100, description="Items per page")
 
 
 class ServiceClientScopeUpdate(BaseModel):
     """Schema for updating service client scopes."""
-    scope_ids: List[int] = Field(..., description="List of scope IDs to assign")
+    scope_ids: List[str] = Field(..., description="List of scope IDs to assign")
 
 
 class ServiceClientStats(BaseModel):
@@ -193,7 +193,7 @@ class ServiceClientUsageResponse(BaseModel):
 
 class ServiceClientAccessLog(BaseModel):
     """Schema for service client access log entry."""
-    id: int
+    id: str
     client_id: str
     endpoint: str
     method: str
@@ -291,11 +291,11 @@ class ServiceClientTokensResponse(BaseModel):
 
 class ServiceClientAuditLog(BaseModel):
     """Schema for service client audit log entry."""
-    id: int
+    id: str
     client_id: str
     action: str = Field(..., description="Action performed (created, updated, deleted, etc.)")
     changes: Optional[dict] = Field(None, description="Changes made")
-    performed_by: int = Field(..., description="User ID who performed the action")
+    performed_by: str = Field(..., description="User ID who performed the action")
     ip_address: str
     timestamp: datetime
     reason: Optional[str] = Field(None, description="Reason for the change")

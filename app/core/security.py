@@ -1,7 +1,7 @@
 """Security utilities and FastAPI dependencies for authentication and authorization."""
 
 import functools
-from typing import List, Optional, Union
+from typing import List, Optional, Union, TYPE_CHECKING
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,9 +22,15 @@ from app.core.exceptions import (
     RevokedTokenError,
     InsufficientScopeError,
 )
-from app.models.user import User
-from app.models.service_client import ServiceClient
-from app.models.refresh_token import RefreshToken
+
+if TYPE_CHECKING:
+    from app.models.user import User
+    from app.models.service_client import ServiceClient
+    from app.models.refresh_token import RefreshToken
+else:
+    from app.models.user import User
+    from app.models.service_client import ServiceClient
+    from app.models.refresh_token import RefreshToken
 
 
 # HTTP Bearer token security scheme
@@ -189,7 +195,7 @@ async def get_current_token_payload(
 
 async def get_current_user(
     payload: dict = Depends(get_current_token_payload),
-    db: AsyncSession = Depends(get_db),
+    db = Depends(get_db),
 ):
     """
     Get current authenticated user.
@@ -205,6 +211,13 @@ async def get_current_user(
         HTTPException: If user not found or invalid
     """
     try:
+        # Handle async generator properly
+        if hasattr(db, '__anext__'):
+            # db is an async generator, get the actual session
+            db_session = await db.__anext__()
+        else:
+            db_session = db
+            
         # Ensure this is a user token (not service token)
         token_type = payload.get(JWTClaims.TOKEN_TYPE)
         if token_type == TokenType.SERVICE:
@@ -214,7 +227,7 @@ async def get_current_user(
         if not user_id:
             raise AuthenticationError("Invalid token: missing user ID")
         
-        return await SecurityUtils.get_user_by_id(user_id, db)
+        return await SecurityUtils.get_user_by_id(user_id, db_session)
     
     except (AuthenticationError, UserNotFoundError, UserDisabledError, UserLockedError) as e:
         raise HTTPException(
@@ -226,7 +239,7 @@ async def get_current_user(
 
 async def get_current_service_client(
     payload: dict = Depends(get_current_token_payload),
-    db: AsyncSession = Depends(get_db),
+    db = Depends(get_db),
 ):
     """
     Get current authenticated service client.
@@ -242,6 +255,13 @@ async def get_current_service_client(
         HTTPException: If service client not found or invalid
     """
     try:
+        # Handle async generator properly
+        if hasattr(db, '__anext__'):
+            # db is an async generator, get the actual session
+            db_session = await db.__anext__()
+        else:
+            db_session = db
+            
         # Ensure this is a service token
         token_type = payload.get(JWTClaims.TOKEN_TYPE)
         if token_type != TokenType.SERVICE:
@@ -251,7 +271,7 @@ async def get_current_service_client(
         if not client_id:
             raise AuthenticationError("Invalid token: missing client ID")
         
-        return await SecurityUtils.get_service_client_by_id(client_id, db)
+        return await SecurityUtils.get_service_client_by_id(client_id, db_session)
     
     except (AuthenticationError, ServiceClientNotFoundError, ServiceClientDisabledError) as e:
         raise HTTPException(
@@ -291,7 +311,7 @@ def require_scopes(required_scopes: List[str]):
             )
     
     # Create a simple function for tests to access
-    async def wrapped_check_scopes(payload: dict) -> dict:
+    def wrapped_check_scopes(payload: dict) -> dict:
         token_scopes = payload.get(JWTClaims.SCOPES, [])
         missing_scopes = set(required_scopes) - set(token_scopes)
         
@@ -387,7 +407,7 @@ def require_any_scope(allowed_scopes: List[str]):
             )
     
     # Create a simple function for tests to access
-    async def wrapped_check_any_scope(payload: dict) -> dict:
+    def wrapped_check_any_scope(payload: dict) -> dict:
         token_scopes = payload.get(JWTClaims.SCOPES, [])
         if not any(scope in token_scopes for scope in allowed_scopes):
             raise InsufficientScopeError(
@@ -424,7 +444,7 @@ def require_user_or_service():
 
 async def get_optional_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-    db: AsyncSession = Depends(get_db),
+    db = Depends(get_db),
     redis: RedisClient = Depends(get_redis),
 ):
     """
@@ -442,6 +462,13 @@ async def get_optional_current_user(
         return None
     
     try:
+        # Handle async generator properly
+        if hasattr(db, '__anext__'):
+            # db is an async generator, get the actual session
+            db_session = await db.__anext__()
+        else:
+            db_session = db
+            
         token = credentials.credentials
         payload = jwt_service.validate_token(token)
         
@@ -459,7 +486,7 @@ async def get_optional_current_user(
         if not user_id:
             return None
         
-        return await SecurityUtils.get_user_by_id(user_id, db)
+        return await SecurityUtils.get_user_by_id(user_id, db_session)
     
     except Exception:
         # If any error occurs, return None (optional auth)

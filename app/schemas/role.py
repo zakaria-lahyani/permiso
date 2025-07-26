@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 class ScopeInfo(BaseModel):
     """Scope information for role responses."""
-    id: int
+    id: str
     name: str
     description: Optional[str] = None
     resource: str
@@ -25,19 +25,19 @@ class RoleBase(BaseModel):
 
 class RoleCreate(RoleBase):
     """Schema for creating a new role."""
-    scope_ids: Optional[List[int]] = Field(default=[], description="List of scope IDs to assign")
+    scope_ids: Optional[List[str]] = Field(default=[], description="List of scope IDs to assign")
 
 
 class RoleUpdate(BaseModel):
     """Schema for updating an existing role."""
     name: Optional[str] = Field(None, min_length=2, max_length=50, description="Role name")
     description: Optional[str] = Field(None, max_length=500, description="Role description")
-    scope_ids: Optional[List[int]] = Field(None, description="List of scope IDs to assign")
+    scope_ids: Optional[List[str]] = Field(None, description="List of scope IDs to assign")
 
 
 class RoleResponse(BaseModel):
     """Schema for role response."""
-    id: int
+    id: str
     name: str
     description: Optional[str] = None
     created_at: datetime
@@ -61,14 +61,14 @@ class RoleListResponse(BaseModel):
 class RoleSearchParams(BaseModel):
     """Schema for role search parameters."""
     search: Optional[str] = Field(None, description="Search term for role name or description")
-    scope_id: Optional[int] = Field(None, description="Filter by scope ID")
+    scope_id: Optional[str] = Field(None, description="Filter by scope ID")
     page: int = Field(1, ge=1, description="Page number")
     per_page: int = Field(20, ge=1, le=100, description="Items per page")
 
 
 class RoleScopeUpdate(BaseModel):
     """Schema for updating role scopes."""
-    scope_ids: List[int] = Field(..., description="List of scope IDs to assign")
+    scope_ids: List[str] = Field(..., description="List of scope IDs to assign")
 
 
 class ScopeBase(BaseModel):
@@ -94,7 +94,7 @@ class ScopeUpdate(BaseModel):
 
 class ScopeResponse(BaseModel):
     """Schema for scope response."""
-    id: int
+    id: str
     name: str
     description: Optional[str] = None
     resource: str
@@ -127,7 +127,7 @@ class ScopeSearchParams(BaseModel):
 
 class PermissionCheck(BaseModel):
     """Schema for permission check request."""
-    user_id: int = Field(..., description="User ID to check permissions for")
+    user_id: str = Field(..., description="User ID to check permissions for")
     resource: str = Field(..., description="Resource to check access to")
     action: str = Field(..., description="Action to check permission for")
 
@@ -142,7 +142,7 @@ class PermissionCheckResponse(BaseModel):
 
 class BulkPermissionCheck(BaseModel):
     """Schema for bulk permission check request."""
-    user_id: int = Field(..., description="User ID to check permissions for")
+    user_id: str = Field(..., description="User ID to check permissions for")
     permissions: List[dict] = Field(..., description="List of resource/action pairs to check")
 
 
@@ -169,7 +169,7 @@ class DefaultRolesResponse(BaseModel):
 
 class RoleHierarchy(BaseModel):
     """Schema for role hierarchy information."""
-    role_id: int
+    role_id: str
     role_name: str
     parent_roles: List[str] = Field(default=[], description="Parent roles in hierarchy")
     child_roles: List[str] = Field(default=[], description="Child roles in hierarchy")
@@ -185,7 +185,7 @@ class RoleHierarchyResponse(BaseModel):
 
 class ScopeUsageStats(BaseModel):
     """Schema for scope usage statistics."""
-    scope_id: int
+    scope_id: str
     scope_name: str
     role_count: int = Field(..., description="Number of roles using this scope")
     user_count: int = Field(..., description="Number of users with this scope")
@@ -202,11 +202,11 @@ class ScopeUsageResponse(BaseModel):
 
 class RoleAssignmentHistory(BaseModel):
     """Schema for role assignment history."""
-    id: int
-    user_id: int
-    role_id: int
+    id: str
+    user_id: str
+    role_id: str
     action: str = Field(..., description="assigned or removed")
-    assigned_by: int = Field(..., description="User ID who made the change")
+    assigned_by: str = Field(..., description="User ID who made the change")
     timestamp: datetime
     reason: Optional[str] = Field(None, description="Reason for the change")
 
@@ -224,7 +224,7 @@ class RoleAssignmentHistoryResponse(BaseModel):
 
 class EffectivePermissions(BaseModel):
     """Schema for effective permissions response."""
-    user_id: int
+    user_id: str
     username: str
     roles: List[str] = Field(default=[], description="User's roles")
     scopes: List[str] = Field(default=[], description="User's effective scopes")
@@ -241,7 +241,7 @@ class ResourcePermissions(BaseModel):
 
 class UserPermissionsResponse(BaseModel):
     """Schema for user permissions response."""
-    user_id: int
+    user_id: str
     username: str
     resources: List[ResourcePermissions] = Field(default=[], description="Permissions by resource")
     global_permissions: List[str] = Field(default=[], description="Global permissions")

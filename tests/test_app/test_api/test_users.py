@@ -49,6 +49,10 @@ class TestUsersListEndpoint:
             headers={"Authorization": f"Bearer {admin_access_token}"}
         )
         
+        print(f"Response status: {response.status_code}")
+        print(f"Response body: {response.text}")
+        print(f"Response headers: {response.headers}")
+        
         assert response.status_code == 200
         
         users_data = response.json()
@@ -271,10 +275,14 @@ class TestUsersGetEndpoint:
             headers={"Authorization": f"Bearer {admin_access_token}"}
         )
         
+        print(f"Response status: {response.status_code}")
+        print(f"Response body: {response.text}")
+        print(f"Response headers: {response.headers}")
+        
         assert response.status_code == 200
         
         user_data = response.json()
-        assert user_data["id"] == test_user.id
+        assert user_data["id"] == str(test_user.id)
         assert user_data["username"] == test_user.username
         assert user_data["email"] == test_user.email
         assert user_data["is_active"] == test_user.is_active
@@ -294,7 +302,7 @@ class TestUsersGetEndpoint:
         assert response.status_code == 200
         
         user_data = response.json()
-        assert user_data["id"] == test_user.id
+        assert user_data["id"] == str(test_user.id)
 
     @pytest.mark.integration
     async def test_get_user_not_found(self, async_client: AsyncClient, admin_access_token: str):
@@ -553,7 +561,7 @@ class TestUsersMeEndpoint:
         assert response.status_code == 200
         
         user_data = response.json()
-        assert user_data["id"] == test_user.id
+        assert user_data["id"] == str(test_user.id)
         assert user_data["username"] == test_user.username
         assert user_data["email"] == test_user.email
         assert "roles" in user_data

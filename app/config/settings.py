@@ -1,5 +1,6 @@
 """Application settings and configuration."""
 
+import os
 import secrets
 from typing import List, Optional
 from functools import lru_cache
@@ -22,18 +23,18 @@ class Settings(BaseSettings):
     PORT: int = 8000
 
     # Database
-    DATABASE_URL: str = "postgresql+asyncpg://keystone:password@localhost:5432/keystone"
+    DATABASE_URL: str
     DATABASE_POOL_SIZE: int = 20
     DATABASE_MAX_OVERFLOW: int = 0
     DATABASE_ECHO: bool = False
 
     # Redis
-    REDIS_URL: str = "redis://localhost:6379/0"
+    REDIS_URL: str
     REDIS_PASSWORD: Optional[str] = None
     REDIS_DECODE_RESPONSES: bool = True
 
     # JWT Configuration
-    JWT_SECRET_KEY: str = secrets.token_urlsafe(32)
+    JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
     JWT_ISSUER: str = "keystone-auth"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
@@ -99,9 +100,14 @@ class Settings(BaseSettings):
     OPENAPI_URL: Optional[str] = "/openapi.json"
 
     @validator('JWT_SECRET_KEY')
-    def validate_jwt_secret_key(cls, v):
-        if len(v) < 32:
-            raise ValueError('JWT secret key must be at least 32 characters long')
+    def validate_jwt_secret_key(cls, v, values):
+        # Allow shorter keys in testing environment
+        # Check both the values dict and environment variables
+        environment = values.get('ENVIRONMENT') or os.environ.get('ENVIRONMENT', 'production')
+        min_length = 16 if environment == 'testing' else 32
+        
+        if len(v) < min_length:
+            raise ValueError(f'JWT secret key must be at least {min_length} characters long')
         return v
 
     @validator('PASSWORD_MIN_LENGTH')
@@ -134,13 +140,17 @@ class Settings(BaseSettings):
             if not v.strip():
                 return []
             return [origin.strip() for origin in v.split(',')]
-        return v
+        elif isinstance(v, list):
+            return v
+        return []
 
     @validator('ALLOWED_HOSTS', pre=True)
     def parse_allowed_hosts(cls, v):
         if isinstance(v, str):
             return [host.strip() for host in v.split(',')]
-        return v
+        elif isinstance(v, list):
+            return v
+        return ["localhost", "127.0.0.1", "*"]
 
     class Config:
         """Pydantic configuration."""

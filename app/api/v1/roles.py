@@ -56,7 +56,7 @@ async def list_roles(
     scope_id: Optional[int] = Query(None, description="Filter by scope ID"),
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(20, ge=1, le=100, description="Items per page"),
-    current_user: User = Depends(require_admin()),
+    current_user = Depends(require_admin()),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -125,7 +125,7 @@ async def list_roles(
 @router.post("/", response_model=RoleResponse, status_code=status.HTTP_201_CREATED)
 async def create_role(
     role_data: RoleCreate,
-    current_user: User = Depends(require_admin()),
+    current_user = Depends(require_admin()),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -179,7 +179,7 @@ async def create_role(
 @router.get("/{role_id}", response_model=RoleResponse)
 async def get_role(
     role_id: int,
-    current_user: User = Depends(require_admin()),
+    current_user = Depends(require_admin()),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -217,7 +217,7 @@ async def get_role(
 async def update_role(
     role_id: int,
     role_data: RoleUpdate,
-    current_user: User = Depends(require_admin()),
+    current_user = Depends(require_admin()),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -280,7 +280,7 @@ async def update_role(
 @router.delete("/{role_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_role(
     role_id: int,
-    current_user: User = Depends(require_admin()),
+    current_user = Depends(require_admin()),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -326,7 +326,7 @@ async def delete_role(
 async def update_role_scopes(
     role_id: int,
     scope_data: RoleScopeUpdate,
-    current_user: User = Depends(require_admin()),
+    current_user = Depends(require_admin()),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -381,7 +381,7 @@ async def list_scopes(
     action: Optional[str] = Query(None, description="Filter by action"),
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(20, ge=1, le=100, description="Items per page"),
-    current_user: User = Depends(require_admin()),
+    current_user = Depends(require_admin()),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -451,7 +451,7 @@ async def list_scopes(
 @router.post("/scopes/", response_model=ScopeResponse, status_code=status.HTTP_201_CREATED)
 async def create_scope(
     scope_data: ScopeCreate,
-    current_user: User = Depends(require_admin()),
+    current_user = Depends(require_admin()),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -497,7 +497,7 @@ async def create_scope(
 @router.get("/scopes/{scope_id}", response_model=ScopeResponse)
 async def get_scope(
     scope_id: int,
-    current_user: User = Depends(require_admin()),
+    current_user = Depends(require_admin()),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -532,7 +532,7 @@ async def get_scope(
 async def update_scope(
     scope_id: int,
     scope_data: ScopeUpdate,
-    current_user: User = Depends(require_admin()),
+    current_user = Depends(require_admin()),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -588,7 +588,7 @@ async def update_scope(
 @router.delete("/scopes/{scope_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_scope(
     scope_id: int,
-    current_user: User = Depends(require_admin()),
+    current_user = Depends(require_admin()),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -635,7 +635,7 @@ async def delete_scope(
 @router.post("/permissions/check", response_model=PermissionCheckResponse)
 async def check_permission(
     permission_check: PermissionCheck,
-    current_user: User = Depends(require_scopes(["admin:permissions"])),
+    current_user = Depends(require_scopes(["admin:permissions"])),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -707,7 +707,7 @@ async def check_permission(
 @router.post("/permissions/check-bulk", response_model=BulkPermissionCheckResponse)
 async def check_bulk_permissions(
     bulk_check: BulkPermissionCheck,
-    current_user: User = Depends(require_scopes(["admin:permissions"])),
+    current_user = Depends(require_scopes(["admin:permissions"])),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -790,7 +790,7 @@ async def check_bulk_permissions(
 @router.get("/permissions/user/{user_id}", response_model=UserPermissionsResponse)
 async def get_user_permissions(
     user_id: int,
-    current_user: User = Depends(require_scopes(["admin:permissions"])),
+    current_user = Depends(require_scopes(["admin:permissions"])),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -854,7 +854,7 @@ async def get_user_permissions(
 
 @router.get("/stats", response_model=RoleStats)
 async def get_role_stats(
-    current_user: User = Depends(require_admin()),
+    current_user = Depends(require_admin()),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -914,7 +914,7 @@ async def get_role_stats(
 
 @router.get("/defaults", response_model=DefaultRolesResponse)
 async def get_default_roles(
-    current_user: User = Depends(require_admin())
+    current_user = Depends(require_admin())
 ):
     """
     Get default role names and descriptions.

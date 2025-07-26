@@ -17,8 +17,9 @@ class TestRedisIntegration:
     @pytest.fixture
     async def redis_client(self):
         """Create a Redis client for testing."""
-        # Use a test Redis database
-        test_redis_url = "redis://localhost:6379/15"
+        # Use a test Redis database from environment or default to Docker container
+        import os
+        test_redis_url = os.getenv("REDIS_URL", "redis://redis-test:6379/0")
         client = create_redis_client(test_redis_url)
 
         # Clean up any existing test data
@@ -33,8 +34,9 @@ class TestRedisIntegration:
     @pytest.fixture
     async def redis_manager(self):
         """Create a RedisManager for testing."""
+        import os
         mock_settings = Settings()
-        mock_settings.redis_url = "redis://localhost:6379/15"
+        mock_settings.redis_url = os.getenv("REDIS_URL", "redis://redis-test:6379/0")
 
         manager = RedisManager(mock_settings)
 
@@ -141,7 +143,7 @@ class TestRedisIntegration:
 
         # Check membership
         is_member = await redis_client.sismember("test_set", "member1")
-        assert is_member is True
+        assert is_member == 1  # Redis returns 1 for True, 0 for False
 
         # Get all members
         members = await redis_client.smembers("test_set")
@@ -324,9 +326,12 @@ class TestRedisIntegration:
         json_data = json.dumps(test_data)
         await redis_manager.set("user:123", json_data, ex=3600)
 
-        # Retrieve and deserialize
-        retrieved_json = await redis_manager.get("user:123")
-        retrieved_data = json.loads(retrieved_json)
+        # Retrieve data (RedisManager automatically deserializes JSON)
+        retrieved_data = await redis_manager.get("user:123")
+        
+        # If it's already deserialized, use it directly; otherwise deserialize
+        if isinstance(retrieved_data, str):
+            retrieved_data = json.loads(retrieved_data)
 
         assert retrieved_data == test_data
 
@@ -354,7 +359,11 @@ class TestRedisIntegration:
         stored_session = await redis_manager.get(f"session:{session_id}")
         assert stored_session is not None
 
-        retrieved_session = json.loads(stored_session)
+        # If it's already deserialized, use it directly; otherwise deserialize
+        if isinstance(stored_session, str):
+            retrieved_session = json.loads(stored_session)
+        else:
+            retrieved_session = stored_session
         assert retrieved_session == session_data
 
         # Check session TTL
@@ -477,8 +486,9 @@ class TestRedisManagerIntegration:
         get_redis_manager.cache_clear()
 
         with patch('app.config.redis.get_settings') as mock_get_settings:
+            import os
             mock_settings = Settings()
-            mock_settings.redis_url = "redis://localhost:6379/15"
+            mock_settings.redis_url = os.getenv("REDIS_URL", "redis://redis-test:6379/0")
             mock_get_settings.return_value = mock_settings
 
             # Get multiple instances
@@ -491,8 +501,9 @@ class TestRedisManagerIntegration:
     @pytest.mark.asyncio
     async def test_redis_manager_context_manager_integration(self):
         """Test RedisManager as context manager in integration scenario."""
+        import os
         mock_settings = Settings()
-        mock_settings.redis_url = "redis://localhost:6379/15"
+        mock_settings.redis_url = os.getenv("REDIS_URL", "redis://redis-test:6379/0")
 
         async with RedisManager(mock_settings) as manager:
             # Test operations within context
@@ -509,8 +520,9 @@ class TestRedisManagerIntegration:
     @pytest.mark.asyncio
     async def test_redis_manager_error_recovery(self):
         """Test RedisManager error recovery."""
+        import os
         mock_settings = Settings()
-        mock_settings.redis_url = "redis://localhost:6379/15"
+        mock_settings.redis_url = os.getenv("REDIS_URL", "redis://redis-test:6379/0")
 
         manager = RedisManager(mock_settings)
 

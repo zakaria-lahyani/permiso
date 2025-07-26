@@ -43,7 +43,7 @@ def test_settings() -> Settings:
         DEBUG=True,
         DATABASE_URL=database_url,
         REDIS_URL=redis_url,
-        JWT_SECRET_KEY="test-secret-key-for-testing-only",
+        JWT_SECRET_KEY="test-secret-key-for-testing-32chars",
         ACCESS_TOKEN_EXPIRE_MINUTES=15,
         REFRESH_TOKEN_EXPIRE_DAYS=30,
         DATABASE_ECHO=False,
@@ -272,6 +272,61 @@ async def disabled_user(db_session: AsyncSession) -> User:
     await db_session.commit()
     await db_session.refresh(user)
     return user
+
+
+@pytest.fixture
+async def test_users(db_session: AsyncSession, test_role: Role, admin_role: Role) -> list[User]:
+    """Create multiple test users."""
+    users = []
+    
+    # Create test user
+    test_user = User(
+        username="testuser",
+        email="test@example.com",
+        password_hash=hash_password("TestPassword123!"),
+        first_name="Test",
+        last_name="User",
+        is_active=True,
+    )
+    test_user.roles.append(test_role)
+    users.append(test_user)
+    
+    # Create admin user
+    admin_user = User(
+        username="admin",
+        email="admin@example.com",
+        password_hash=hash_password("AdminPassword123!"),
+        first_name="Admin",
+        last_name="User",
+        is_active=True,
+    )
+    admin_user.roles.append(admin_role)
+    users.append(admin_user)
+    
+    # Create additional test users
+    for i in range(3):
+        user = User(
+            username=f"user{i}",
+            email=f"user{i}@example.com",
+            password_hash=hash_password(f"Password{i}123!"),
+            first_name=f"User{i}",
+            last_name="Test",
+            is_active=True,
+        )
+        user.roles.append(test_role)
+        users.append(user)
+    
+    # Add all users to session
+    for user in users:
+        db_session.add(user)
+    
+    await db_session.commit()
+    
+    # Refresh all users
+    for user in users:
+        await db_session.refresh(user)
+    
+    return users
 
 
 @pytest.fixture

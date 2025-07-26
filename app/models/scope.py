@@ -52,7 +52,7 @@ class Scope(BaseModel):
 
     def __repr__(self) -> str:
         """String representation of the scope."""
-        return f"<Scope(id={self.id}, name='{self.name}')>"
+        return f"<Scope(name='{self.name}', resource={repr(self.resource)})>"
 
     @property
     def action(self) -> str:
@@ -212,3 +212,190 @@ class Scope(BaseModel):
         import re
         pattern = r"^[a-zA-Z0-9_:-]+$"
         return bool(re.match(pattern, scope_name))
+
+    @classmethod
+    async def get_by_name(cls, session, name: str):
+        """
+        Get scope by name.
+        
+        Args:
+            session: Database session
+            name: Scope name to search for
+            
+        Returns:
+            Scope instance or None
+        """
+        from sqlalchemy import select
+        stmt = select(cls).where(cls.name == name)
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    def validate(self) -> bool:
+        """
+        Validate scope data.
+        
+        Returns:
+            True if valid
+            
+        Raises:
+            ValueError: If validation fails
+        """
+        if not self.name or len(self.name.strip()) == 0:
+            raise ValueError("Scope name cannot be empty")
+        
+        if len(self.name) > 100:
+            raise ValueError("Scope name cannot exceed 100 characters")
+        
+        if not self.validate_scope_format(self.name):
+            raise ValueError("Invalid scope name format")
+        
+        return True
+
+    def parse_name(self) -> dict:
+        """
+        Parse scope name into components.
+        
+        Returns:
+            Dictionary with action and resource components
+        """
+        if ":" in self.name:
+            action, resource = self.name.split(":", 1)
+            return {"action": action, "resource": resource}
+        return {"action": self.name, "resource": None}
+
+    def get_action(self) -> str:
+        """
+        Get the action part of the scope.
+        
+        Returns:
+            Action string
+        """
+        return self.action
+
+    def get_resource(self) -> str:
+        """
+        Get the resource part of the scope.
+        
+        Returns:
+            Resource string
+        """
+        return self.resource_name
+
+    def matches_pattern(self, pattern: str) -> bool:
+        """
+        Check if scope matches a pattern.
+        
+        Args:
+            pattern: Pattern to match against
+            
+        Returns:
+            True if scope matches pattern
+        """
+        import re
+        # Convert pattern to regex (simple wildcard support)
+        regex_pattern = pattern.replace("*", ".*").replace("?", ".")
+        return bool(re.match(f"^{regex_pattern}$", self.name))
+
+    def implies(self, other_scope: str) -> bool:
+        """
+        Check if this scope implies another scope.
+        
+        Args:
+            other_scope: Other scope name to check
+            
+        Returns:
+            True if this scope implies the other
+        """
+        # Admin scopes imply read/write scopes for the same resource
+        if self.is_admin_scope():
+            if ":" in self.name and ":" in other_scope:
+                _, self_resource = self.name.split(":", 1)
+                other_action, other_resource = other_scope.split(":", 1)
+                if self_resource == other_resource:
+                    return True
+        
+        # System admin implies everything
+        if self.name == "admin:system":
+            return True
+        
+        return False
+
+    def get_permission_level(self) -> str:
+        """
+        Get permission level of the scope.
+        
+        Returns:
+            Permission level string
+        """
+        if self.is_admin_scope():
+            return "admin"
+        elif self.is_write_scope():
+            return "write"
+        elif self.is_read_scope():
+            return "read"
+        else:
+            return "custom"
+
+    @classmethod
+    async def get_admin_scopes(cls, session):
+        """
+        Get all admin scopes.
+        
+        Args:
+            session: Database session
+            
+        Returns:
+            List of admin scopes
+        """
+        from sqlalchemy import select
+        stmt = select(cls).where(cls.name.like("admin:%"))
+        result = await session.execute(stmt)
+        return result.scalars().all()
+
+    def serialize(self) -> dict:
+        """
+        Serialize scope to dictionary.
+        
+        Returns:
+            Serialized scope data
+        """
+        return {
+            "id": str(self.id),
+            "name": self.name,
+            "description": self.description,
+            "resource": self.resource,
+            "action": self.action,
+            "resource_name": self.resource_name,
+            "is_read": self.is_read_scope(),
+            "is_write": self.is_write_scope(),
+            "is_admin": self.is_admin_scope(),
+            "permission_level": self.get_permission_level(),
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+    def get_security_level(self) -> str:
+        """
+        Get security level classification.
+        
+        Returns:
+            Security level string
+        """
+        if self.is_admin_scope():
+            return "restricted"
+        elif self.is_write_scope():
+            return "protected"
+        elif self.is_read_scope():
+            return "public"
+        else:
+            return "custom"
+
+    def __eq__(self, other) -> bool:
+        """Check equality based on name and id."""
+        if not isinstance(other, Scope):
+            return False
+        return self.name == other.name and self.id == other.id
+
+    def __hash__(self) -> int:
+        """Hash based on name and id."""
+        return hash((self.name, self.id))

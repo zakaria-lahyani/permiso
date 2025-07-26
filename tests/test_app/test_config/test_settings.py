@@ -16,7 +16,7 @@ class TestSettingsValidation:
         with patch.dict(os.environ, {
             "DATABASE_URL": "postgresql://test:test@localhost/test",
             "REDIS_URL": "redis://localhost:6379/0",
-            "JWT_SECRET_KEY": "test-secret-key-for-testing"
+            "JWT_SECRET_KEY": "test-secret-key-for-testing-32chars"
         }, clear=True):
             settings = Settings()
             
@@ -149,7 +149,7 @@ class TestSettingsValidation:
         base_env = {
             "DATABASE_URL": "postgresql://test:test@localhost/test",
             "REDIS_URL": "redis://localhost:6379/0",
-            "JWT_SECRET_KEY": "test-secret-key-for-testing"
+            "JWT_SECRET_KEY": "test-secret-key-for-testing-32chars"
         }
         
         # Test minimum password length
@@ -169,7 +169,7 @@ class TestSettingsValidation:
         base_env = {
             "DATABASE_URL": "postgresql://test:test@localhost/test",
             "REDIS_URL": "redis://localhost:6379/0",
-            "JWT_SECRET_KEY": "test-secret-key-for-testing"
+            "JWT_SECRET_KEY": "test-secret-key-for-testing-32chars"
         }
         
         # Test max login attempts
@@ -192,7 +192,7 @@ class TestSettingsValidation:
         base_env = {
             "DATABASE_URL": "postgresql://test:test@localhost/test",
             "REDIS_URL": "redis://localhost:6379/0",
-            "JWT_SECRET_KEY": "test-secret-key-for-testing"
+            "JWT_SECRET_KEY": "test-secret-key-for-testing-32chars"
         }
         
         # Test single origin
@@ -216,7 +216,7 @@ class TestSettingsValidation:
         base_env = {
             "DATABASE_URL": "postgresql://test:test@localhost/test",
             "REDIS_URL": "redis://localhost:6379/0",
-            "JWT_SECRET_KEY": "test-secret-key-for-testing"
+            "JWT_SECRET_KEY": "test-secret-key-for-testing-32chars"
         }
         
         # Test single host
@@ -234,7 +234,7 @@ class TestSettingsValidation:
         """Test database URL parsing and validation."""
         base_env = {
             "REDIS_URL": "redis://localhost:6379/0",
-            "JWT_SECRET_KEY": "test-secret-key-for-testing"
+            "JWT_SECRET_KEY": "test-secret-key-for-testing-32chars"
         }
         
         # Test PostgreSQL URL
@@ -251,7 +251,7 @@ class TestSettingsValidation:
         """Test Redis URL parsing and validation."""
         base_env = {
             "DATABASE_URL": "postgresql://test:test@localhost/test",
-            "JWT_SECRET_KEY": "test-secret-key-for-testing"
+            "JWT_SECRET_KEY": "test-secret-key-for-testing-32chars"
         }
         
         # Test Redis URL with database
@@ -269,7 +269,7 @@ class TestSettingsValidation:
         base_env = {
             "DATABASE_URL": "postgresql://test:test@localhost/test",
             "REDIS_URL": "redis://localhost:6379/0",
-            "JWT_SECRET_KEY": "test-secret-key-for-testing"
+            "JWT_SECRET_KEY": "test-secret-key-for-testing-32chars"
         }
         
         # Test development environment
@@ -297,7 +297,7 @@ class TestSettingsProperties:
         base_env = {
             "DATABASE_URL": "postgresql://test:test@localhost/test",
             "REDIS_URL": "redis://localhost:6379/0",
-            "JWT_SECRET_KEY": "test-secret-key-for-testing"
+            "JWT_SECRET_KEY": "test-secret-key-for-testing-32chars"
         }
         
         with patch.dict(os.environ, {**base_env, "ENVIRONMENT": "development"}, clear=True):
@@ -313,7 +313,7 @@ class TestSettingsProperties:
         base_env = {
             "DATABASE_URL": "postgresql://test:test@localhost/test",
             "REDIS_URL": "redis://localhost:6379/0",
-            "JWT_SECRET_KEY": "test-secret-key-for-testing"
+            "JWT_SECRET_KEY": "test-secret-key-for-testing-32chars"
         }
         
         with patch.dict(os.environ, {**base_env, "ENVIRONMENT": "testing"}, clear=True):
@@ -329,7 +329,7 @@ class TestSettingsProperties:
         with patch.dict(os.environ, {
             "DATABASE_URL": "postgresql://user:pass@localhost:5432/testdb",
             "REDIS_URL": "redis://localhost:6379/0",
-            "JWT_SECRET_KEY": "test-secret-key-for-testing"
+            "JWT_SECRET_KEY": "test-secret-key-for-testing-32chars"
         }, clear=True):
             settings = Settings()
             
@@ -342,7 +342,7 @@ class TestSettingsProperties:
         with patch.dict(os.environ, {
             "DATABASE_URL": "postgresql://test:test@localhost/test",
             "REDIS_URL": "redis://localhost:6379/2",
-            "JWT_SECRET_KEY": "test-secret-key-for-testing"
+            "JWT_SECRET_KEY": "test-secret-key-for-testing-32chars"
         }, clear=True):
             settings = Settings()
             
@@ -359,7 +359,7 @@ class TestGetSettings:
         with patch.dict(os.environ, {
             "DATABASE_URL": "postgresql://test:test@localhost/test",
             "REDIS_URL": "redis://localhost:6379/0",
-            "JWT_SECRET_KEY": "test-secret-key-for-testing"
+            "JWT_SECRET_KEY": "test-secret-key-for-testing-32chars"
         }, clear=True):
             settings = get_settings()
             assert isinstance(settings, Settings)
@@ -369,7 +369,7 @@ class TestGetSettings:
         with patch.dict(os.environ, {
             "DATABASE_URL": "postgresql://test:test@localhost/test",
             "REDIS_URL": "redis://localhost:6379/0",
-            "JWT_SECRET_KEY": "test-secret-key-for-testing"
+            "JWT_SECRET_KEY": "test-secret-key-for-testing-32chars"
         }, clear=True):
             # Clear the cache first
             get_settings.cache_clear()
@@ -385,7 +385,7 @@ class TestGetSettings:
         with patch.dict(os.environ, {
             "DATABASE_URL": "postgresql://test:test@localhost/test",
             "REDIS_URL": "redis://localhost:6379/0",
-            "JWT_SECRET_KEY": "test-secret-key-for-testing"
+            "JWT_SECRET_KEY": "test-secret-key-for-testing-32chars"
         }, clear=True):
             settings1 = get_settings()
             get_settings.cache_clear()
@@ -403,7 +403,7 @@ class TestSettingsIntegration:
         with patch.dict(os.environ, {
             "DATABASE_URL": "postgresql://test:test@localhost/test",
             "REDIS_URL": "redis://localhost:6379/0",
-            "JWT_SECRET_KEY": "test-secret-key-for-testing",
+            "JWT_SECRET_KEY": "test-secret-key-for-testing-32chars",
             "DEBUG": "true",
             "CORS_ORIGINS": "http://localhost:3000"
         }, clear=True):
@@ -419,7 +419,7 @@ class TestSettingsIntegration:
         with patch.dict(os.environ, {
             "DATABASE_URL": "postgresql://test:test@localhost/test",
             "REDIS_URL": "redis://localhost:6379/0",
-            "JWT_SECRET_KEY": "test-secret-key-for-testing",
+            "JWT_SECRET_KEY": "test-secret-key-for-testing-32chars",
             "MAX_LOGIN_ATTEMPTS": "5",
             "ACCOUNT_LOCKOUT_MINUTES": "30",
             "RATE_LIMIT_PER_MINUTE": "60"
@@ -437,7 +437,7 @@ class TestSettingsIntegration:
         with patch.dict(os.environ, {
             "DATABASE_URL": "postgresql://test:test@localhost/test",
             "REDIS_URL": "redis://localhost:6379/0",
-            "JWT_SECRET_KEY": "test-secret-key-for-testing",
+            "JWT_SECRET_KEY": "test-secret-key-for-testing-32chars",
             "ACCESS_TOKEN_EXPIRE_MINUTES": "15",
             "REFRESH_TOKEN_EXPIRE_DAYS": "30",
             "JWT_ALGORITHM": "HS256"
@@ -459,7 +459,7 @@ class TestSettingsIntegration:
         with patch.dict(os.environ, {
             "DATABASE_URL": "postgresql://test:test@localhost/test",
             "REDIS_URL": "redis://localhost:6379/0",
-            "JWT_SECRET_KEY": "test-secret-key-for-testing",
+            "JWT_SECRET_KEY": "test-secret-key-for-testing-32chars",
             "ENVIRONMENT": env_name
         }, clear=True):
             settings = Settings()
@@ -487,7 +487,7 @@ class TestSettingsErrorHandling:
         base_env = {
             "DATABASE_URL": "postgresql://test:test@localhost/test",
             "REDIS_URL": "redis://localhost:6379/0",
-            "JWT_SECRET_KEY": "test-secret-key-for-testing"
+            "JWT_SECRET_KEY": "test-secret-key-for-testing-32chars"
         }
         
         # Test invalid integer conversion
@@ -501,7 +501,7 @@ class TestSettingsErrorHandling:
         """Test URL validation error handling."""
         base_env = {
             "REDIS_URL": "redis://localhost:6379/0",
-            "JWT_SECRET_KEY": "test-secret-key-for-testing"
+            "JWT_SECRET_KEY": "test-secret-key-for-testing-32chars"
         }
         
         # Test invalid database URL

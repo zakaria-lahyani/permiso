@@ -24,6 +24,10 @@ class TestAuthTokenEndpoint:
             }
         )
         
+        print(f"Response status: {response.status_code}")
+        print(f"Response body: {response.text}")
+        print(f"Response headers: {response.headers}")
+        
         assert response.status_code == 200
         
         token_data = response.json()

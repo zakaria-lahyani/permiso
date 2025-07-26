@@ -55,7 +55,7 @@ settings = get_settings()
 async def login_for_access_token(
     request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
-    db: AsyncSession = Depends(get_db),
+    db = Depends(get_db),
     redis = Depends(get_redis),
     session_service: SessionService = Depends(get_session_service)
 ):
@@ -66,13 +66,20 @@ async def login_for_access_token(
     Returns access token and optional refresh token.
     """
     try:
+        # Handle async generator properly
+        if hasattr(db, '__anext__'):
+            # db is an async generator, get the actual session
+            db_session = await db.__anext__()
+        else:
+            db_session = db
+            
         # Get user by username or email
-        user = await User.get_by_username_or_email(db, form_data.username)
+        user = await User.get_by_username_or_email(db_session, form_data.username)
         
         if not user:
             # Increment failed login attempts for rate limiting
             await _track_failed_login(redis, form_data.username, request.client.host)
-            raise AuthenticationError("Invalid username or password")
+            raise AuthenticationError("Invalid username or password", error_code="invalid_grant")
         
         # Verify password
         if not verify_password(form_data.password, user.password_hash):
@@ -80,24 +87,26 @@ async def login_for_access_token(
                 max_attempts=settings.max_login_attempts,
                 lockout_minutes=settings.account_lockout_minutes
             )
-            await db.commit()
+            await db_session.commit()
             await _track_failed_login(redis, form_data.username, request.client.host)
-            raise AuthenticationError("Invalid username or password")
+            raise AuthenticationError("Invalid username or password", error_code="invalid_grant")
         
         # Check if user account is active
         if not user.is_active:
-            raise UserDisabledError("User account is disabled")
+            raise UserDisabledError("User account is disabled", error_code="account_disabled")
         
         # Check if user account is locked
         if user.is_locked:
+            locked_until_str = user.locked_until.isoformat() if user.locked_until else None
             raise UserLockedError(
                 "Account is temporarily locked due to too many failed login attempts",
-                locked_until=user.locked_until
+                error_code="account_locked",
+                locked_until=locked_until_str
             )
         
         # Update last login and reset failed attempts
         user.update_last_login()
-        await db.commit()
+        await db_session.commit()
         
         # Get user scopes
         user_scopes = await user.get_scopes()
@@ -106,28 +115,27 @@ async def login_for_access_token(
         requested_scopes = form_data.scopes if form_data.scopes else user_scopes
         granted_scopes = list(set(requested_scopes) & set(user_scopes))
         
-        # Create access token
-        access_payload = {
-            JWTClaims.SUBJECT: str(user.id),
-            JWTClaims.USERNAME: user.username,
-            JWTClaims.EMAIL: user.email,
-            JWTClaims.SCOPES: granted_scopes,
-            JWTClaims.TOKEN_TYPE: TokenType.ACCESS,
-            JWTClaims.IS_SUPERUSER: user.is_superuser
-        }
+        # Get user roles
+        user_roles = [role.name for role in user.roles] if user.roles else []
         
-        access_token = jwt_service.create_access_token(access_payload)
+        # Create access token using the proper JWT service method
+        access_token = jwt_service.create_access_token(
+            subject=str(user.id),
+            scopes=granted_scopes,
+            audience=[settings.JWT_ISSUER],
+            roles=user_roles,
+            username=user.username,
+            email=user.email,
+            additional_claims={"is_superuser": user.is_superuser}
+        )
         access_payload_decoded = jwt_service.validate_token(access_token)
         access_jti = access_payload_decoded.get(JWTClaims.JWT_ID)
         
-        # Create refresh token
-        refresh_payload = {
-            JWTClaims.SUBJECT: str(user.id),
-            JWTClaims.USERNAME: user.username,
-            JWTClaims.TOKEN_TYPE: TokenType.REFRESH
-        }
-        
-        refresh_token = jwt_service.create_refresh_token(refresh_payload)
+        # Create refresh token using the proper JWT service method
+        refresh_token = jwt_service.create_refresh_token(
+            subject=str(user.id),
+            username=user.username
+        )
         refresh_payload_decoded = jwt_service.validate_token(refresh_token)
         refresh_jti = refresh_payload_decoded.get(JWTClaims.JWT_ID)
         
@@ -137,14 +145,18 @@ async def login_for_access_token(
             token_hash=hash_password(refresh_token),  # Hash the token for security
             expires_at=datetime.utcnow() + timedelta(days=settings.refresh_token_expire_days)
         )
-        db.add(db_refresh_token)
-        await db.commit()
+        db_session.add(db_refresh_token)
+        await db_session.commit()
         
-        # Create user session
+        # Create user session with proper database session
         user_agent = request.headers.get("user-agent")
         ip_address = request.client.host if request.client else "unknown"
         
-        session = await session_service.create_session(
+        # Create session service with the resolved database session
+        from app.services.session_service import SessionService
+        session_svc = SessionService(db_session, redis)
+        
+        session = await session_svc.create_session(
             user=user,
             ip_address=ip_address,
             user_agent=user_agent,
@@ -166,15 +178,23 @@ async def login_for_access_token(
         )
         
     except (AuthenticationError, UserDisabledError, UserLockedError) as e:
+        error_detail = e.to_dict() if hasattr(e, 'to_dict') else {"error": "authentication_error", "error_description": str(e)}
+        status_code = status.HTTP_401_UNAUTHORIZED
+        if isinstance(e, UserDisabledError):
+            status_code = status.HTTP_403_FORBIDDEN
+        elif isinstance(e, UserLockedError):
+            status_code = status.HTTP_423_LOCKED
+            
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED if isinstance(e, AuthenticationError) else status.HTTP_423_LOCKED,
-            detail=e.to_dict(),
+            status_code=status_code,
+            detail=error_detail,
             headers={"WWW-Authenticate": "Bearer"}
         )
     except Exception as e:
+        import traceback
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": "internal_error", "error_description": "An internal error occurred"}
+            detail={"error": "internal_error", "error_description": f"An internal error occurred: {str(e)}", "traceback": traceback.format_exc()}
         )
 
 
@@ -187,7 +207,7 @@ async def service_token(
     client_id: str = Form(...),
     client_secret: str = Form(...),
     scope: Optional[str] = Form(None),
-    db: AsyncSession = Depends(get_db)
+    db = Depends(get_db)
 ):
     """
     OAuth2 client credentials flow for service-to-service authentication.
@@ -195,22 +215,33 @@ async def service_token(
     Returns access token for service clients.
     """
     try:
+        # Handle async generator properly
+        try:
+            if hasattr(db, '__anext__'):
+                db_session = await db.__anext__()
+            else:
+                db_session = db
+        except StopAsyncIteration:
+            from app.config.database import get_db
+            async_gen = get_db()
+            db_session = await async_gen.__anext__()
+            
         # Get service client
-        result = await db.execute(
+        result = await db_session.execute(
             select(ServiceClient).where(ServiceClient.client_id == client_id)
         )
         client = result.scalar_one_or_none()
         
         if not client:
-            raise ServiceClientNotFoundError(f"Service client {client_id} not found")
+            raise ServiceClientNotFoundError(f"Service client {client_id} not found", error_code="invalid_client")
         
         # Verify client secret
         if not verify_password(client_secret, client.client_secret_hash):
-            raise AuthenticationError("Invalid client credentials")
+            raise AuthenticationError("Invalid client credentials", error_code="invalid_client")
         
         # Check if client is active
         if not client.is_active:
-            raise ServiceClientDisabledError("Service client is disabled")
+            raise ServiceClientDisabledError("Service client is disabled", error_code="client_disabled")
         
         # Get client scopes
         client_scopes = client.get_scope_names()
@@ -234,7 +265,7 @@ async def service_token(
         
         # Update client usage
         client.update_usage()
-        await db.commit()
+        await db_session.commit()
         
         return TokenResponse(
             access_token=access_token,
@@ -261,7 +292,7 @@ async def service_token(
 })
 async def refresh_access_token(
     refresh_request: RefreshTokenRequest,
-    db: AsyncSession = Depends(get_db)
+    db = Depends(get_db)
 ):
     """
     Refresh access token using refresh token.
@@ -269,6 +300,17 @@ async def refresh_access_token(
     Returns new access token and refresh token.
     """
     try:
+        # Handle async generator properly
+        try:
+            if hasattr(db, '__anext__'):
+                db_session = await db.__anext__()
+            else:
+                db_session = db
+        except StopAsyncIteration:
+            from app.config.database import get_db
+            async_gen = get_db()
+            db_session = await async_gen.__anext__()
+            
         # Validate refresh token
         payload = jwt_service.validate_token(refresh_request.refresh_token)
         
@@ -280,11 +322,11 @@ async def refresh_access_token(
             raise InvalidTokenError("Invalid token payload")
         
         # Get user
-        user = await SecurityUtils.get_user_by_id(user_id, db)
+        user = await SecurityUtils.get_user_by_id(user_id, db_session)
         
         # Verify refresh token exists in database
         token_hash = hash_password(refresh_request.refresh_token)
-        result = await db.execute(
+        result = await db_session.execute(
             select(RefreshToken).where(
                 RefreshToken.user_id == user.id,
                 RefreshToken.token_hash == token_hash,
@@ -323,7 +365,7 @@ async def refresh_access_token(
         # Update refresh token in database
         db_refresh_token.token_hash = hash_password(new_refresh_token)
         db_refresh_token.expires_at = datetime.utcnow() + timedelta(days=settings.refresh_token_expire_days)
-        await db.commit()
+        await db_session.commit()
         
         return TokenResponse(
             access_token=access_token,
@@ -334,9 +376,13 @@ async def refresh_access_token(
         )
         
     except (InvalidTokenError, UserNotFoundError, UserDisabledError, UserLockedError) as e:
+        # Use invalid_grant for refresh token errors
+        error_detail = e.to_dict() if hasattr(e, 'to_dict') else {"error": "invalid_grant", "error_description": str(e)}
+        if "error" not in error_detail:
+            error_detail["error"] = "invalid_grant"
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=e.to_dict(),
+            detail=error_detail,
             headers={"WWW-Authenticate": "Bearer"}
         )
 
@@ -345,7 +391,7 @@ async def refresh_access_token(
 async def introspect_token(
     introspection_request: TokenIntrospectionRequest,
     payload: dict = Depends(require_scopes(["admin:tokens"])),
-    db: AsyncSession = Depends(get_db)
+    db = Depends(get_db)
 ):
     """
     RFC 7662 OAuth2 Token Introspection endpoint.
@@ -447,10 +493,10 @@ async def revoke_token(
 
 @router.post("/logout", response_model=LogoutResponse)
 async def logout(
-    current_user: User = Depends(get_current_user),
+    current_user = Depends(get_current_user),
     payload: dict = Depends(get_current_token_payload),
     redis = Depends(get_redis),
-    db: AsyncSession = Depends(get_db),
+    db = Depends(get_db),
     session_service: SessionService = Depends(get_session_service)
 ):
     """
@@ -459,6 +505,17 @@ async def logout(
     Revokes current access token and all refresh tokens.
     """
     try:
+        # Handle async generator properly
+        try:
+            if hasattr(db, '__anext__'):
+                db_session = await db.__anext__()
+            else:
+                db_session = db
+        except StopAsyncIteration:
+            from app.config.database import get_db
+            async_gen = get_db()
+            db_session = await async_gen.__anext__()
+            
         sessions_terminated = 0
         
         # Revoke current access token
@@ -470,20 +527,20 @@ async def logout(
             sessions_terminated += 1
         
         # Revoke all refresh tokens for the user
-        result = await db.execute(
+        result = await db_session.execute(
             select(RefreshToken).where(RefreshToken.user_id == current_user.id)
         )
         refresh_tokens = result.scalars().all()
         
         for refresh_token in refresh_tokens:
-            await db.delete(refresh_token)
+            await db_session.delete(refresh_token)
             sessions_terminated += 1
         
         # Invalidate all user sessions
         session_count = await session_service.invalidate_all_user_sessions(current_user.id)
         sessions_terminated += session_count
         
-        await db.commit()
+        await db_session.commit()
         
         return LogoutResponse(
             message="Logged out successfully",

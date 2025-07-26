@@ -47,7 +47,7 @@ class Role(BaseModel):
 
     def __repr__(self) -> str:
         """String representation of the role."""
-        return f"<Role(id={self.id}, name='{self.name}')>"
+        return f"<Role(name='{self.name}', description={repr(self.description)})>"
 
     async def has_scope(self, scope_name: str) -> bool:
         """
@@ -91,14 +91,117 @@ class Role(BaseModel):
             self.scopes.remove(scope)
 
     @classmethod
-    def get_default_roles(cls) -> List[str]:
+    async def get_by_name(cls, session, name: str):
         """
-        Get list of default role names.
+        Get role by name.
+        
+        Args:
+            session: Database session
+            name: Role name to search for
+            
+        Returns:
+            Role instance or None
+        """
+        from sqlalchemy import select
+        stmt = select(cls).where(cls.name == name)
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    def validate(self) -> bool:
+        """
+        Validate role data.
         
         Returns:
-            List of default role names
+            True if valid
+            
+        Raises:
+            ValueError: If validation fails
         """
-        return ["user", "admin", "trader", "service"]
+        if not self.name or len(self.name.strip()) == 0:
+            raise ValueError("Role name cannot be empty")
+        
+        if len(self.name) > 50:
+            raise ValueError("Role name cannot exceed 50 characters")
+        
+        return True
+
+    def soft_delete(self) -> None:
+        """
+        Soft delete the role by marking it as inactive.
+        """
+        # For now, we'll use a simple approach
+        # In a full implementation, you might add a deleted_at field
+        self.name = f"deleted_{self.name}_{self.id}"
+
+    async def get_permissions(self) -> List[str]:
+        """
+        Get all permissions for this role through scopes.
+        
+        Returns:
+            List of permission strings
+        """
+        permissions = []
+        for scope in self.scopes:
+            if hasattr(scope, 'resource') and hasattr(scope, 'action'):
+                if scope.resource and scope.action:
+                    permissions.append(f"{scope.action}:{scope.resource}")
+                else:
+                    permissions.append(scope.name)
+            else:
+                permissions.append(scope.name)
+        return permissions
+
+    async def can_access_resource(self, resource: str, action: str = "read") -> bool:
+        """
+        Check if role can access a resource with specific action.
+        
+        Args:
+            resource: Resource name
+            action: Action to perform
+            
+        Returns:
+            True if role can access the resource
+        """
+        # Check for specific scope
+        scope_name = f"{action}:{resource}"
+        if await self.has_scope(scope_name):
+            return True
+        
+        # Check for admin scope on resource
+        admin_scope = f"admin:{resource}"
+        if await self.has_scope(admin_scope):
+            return True
+        
+        # Check for general admin scope
+        if action != "admin" and await self.has_scope("admin:system"):
+            return True
+        
+        return False
+
+    def __eq__(self, other) -> bool:
+        """Check equality based on name and id."""
+        if not isinstance(other, Role):
+            return False
+        return self.name == other.name and self.id == other.id
+
+    def __hash__(self) -> int:
+        """Hash based on name and id."""
+        return hash((self.name, self.id))
+
+    @classmethod
+    def get_default_roles(cls) -> List[dict]:
+        """
+        Get list of default role definitions.
+        
+        Returns:
+            List of default role dictionaries
+        """
+        return [
+            {"name": "user", "description": "Standard user role"},
+            {"name": "admin", "description": "Administrator role"},
+            {"name": "trader", "description": "Trading user role"},
+            {"name": "service", "description": "Service client role"},
+        ]
 
     def to_dict(self) -> dict:
         """Convert role to dictionary with scope information."""

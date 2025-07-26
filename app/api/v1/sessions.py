@@ -16,7 +16,7 @@ router = APIRouter()
 
 @router.get("/", response_model=ActiveSessionsResponse)
 async def get_user_sessions(
-    current_user: User = Depends(get_current_user),
+    current_user = Depends(get_current_user),
     session_service: SessionService = Depends(get_session_service),
     db: AsyncSession = Depends(get_db),
 ):
@@ -57,7 +57,7 @@ async def get_user_sessions(
 @router.post("/{session_id}/renew")
 async def renew_session(
     session_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user = Depends(get_current_user),
     session_service: SessionService = Depends(get_session_service),
 ):
     """
@@ -107,7 +107,7 @@ async def renew_session(
 @router.delete("/{session_id}")
 async def invalidate_session(
     session_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user = Depends(get_current_user),
     session_service: SessionService = Depends(get_session_service),
 ):
     """
@@ -155,7 +155,7 @@ async def invalidate_session(
 
 @router.delete("/")
 async def invalidate_all_sessions(
-    current_user: User = Depends(get_current_user),
+    current_user = Depends(get_current_user),
     session_service: SessionService = Depends(get_session_service),
 ):
     """

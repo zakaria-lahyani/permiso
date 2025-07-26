@@ -23,7 +23,7 @@ router = APIRouter()
 
 @router.get("/dashboard/stats")
 async def get_dashboard_stats(
-    current_user: User = Depends(require_admin()),
+    current_user = Depends(require_admin()),
     db: AsyncSession = Depends(get_db),
     redis = Depends(get_redis)
 ):
@@ -110,7 +110,7 @@ async def get_dashboard_stats(
 
 @router.get("/system/health")
 async def get_system_health(
-    current_user: User = Depends(require_admin()),
+    current_user = Depends(require_admin()),
     db: AsyncSession = Depends(get_db),
     redis = Depends(get_redis)
 ):
@@ -184,7 +184,7 @@ async def get_security_events(
     hours: int = Query(24, ge=1, le=168, description="Hours to look back"),
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(50, ge=1, le=100, description="Items per page"),
-    current_user: User = Depends(require_scopes(["admin:security"])),
+    current_user = Depends(require_scopes(["admin:security"])),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -261,7 +261,7 @@ async def get_security_events(
 
 @router.post("/maintenance/cleanup")
 async def cleanup_expired_data(
-    current_user: User = Depends(require_admin()),
+    current_user = Depends(require_admin()),
     db: AsyncSession = Depends(get_db),
     redis = Depends(get_redis)
 ):
@@ -397,7 +397,7 @@ async def cleanup_expired_data(
 
 @router.post("/maintenance/backup")
 async def create_system_backup(
-    current_user: User = Depends(require_admin()),
+    current_user = Depends(require_admin()),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -447,7 +447,7 @@ async def get_audit_activity(
     hours: int = Query(24, ge=1, le=168, description="Hours to look back"),
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(50, ge=1, le=100, description="Items per page"),
-    current_user: User = Depends(require_scopes(["admin:audit"])),
+    current_user = Depends(require_scopes(["admin:audit"])),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -531,7 +531,7 @@ async def get_audit_activity(
 @router.get("/reports/usage")
 async def get_usage_report(
     days: int = Query(30, ge=1, le=365, description="Number of days to include"),
-    current_user: User = Depends(require_admin()),
+    current_user = Depends(require_admin()),
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -607,7 +607,7 @@ async def get_usage_report(
 
 @router.post("/config/reload")
 async def reload_configuration(
-    current_user: User = Depends(require_scopes(["admin:system"])),
+    current_user = Depends(require_scopes(["admin:system"])),
 ):
     """
     Reload system configuration.
@@ -647,7 +647,7 @@ async def get_error_logs(
     hours: int = Query(24, ge=1, le=168, description="Hours to look back"),
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(50, ge=1, le=100, description="Items per page"),
-    current_user: User = Depends(require_scopes(["admin:logs"])),
+    current_user = Depends(require_scopes(["admin:logs"])),
 ):
     """
     Get system error logs.

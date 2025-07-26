@@ -28,7 +28,7 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     """Schema for creating a new user."""
     password: str = Field(..., min_length=8, max_length=128, description="User's password")
-    role_ids: Optional[List[int]] = Field(default=[], description="List of role IDs to assign")
+    role_ids: Optional[List[str]] = Field(default=[], description="List of role IDs to assign")
 
     @validator('password')
     def validate_password(cls, v):
@@ -55,7 +55,7 @@ class UserUpdate(BaseModel):
     bio: Optional[str] = Field(None, max_length=1000, description="User biography")
     is_active: Optional[bool] = Field(None, description="Whether the user account is active")
     is_verified: Optional[bool] = Field(None, description="Whether the user's email is verified")
-    role_ids: Optional[List[int]] = Field(None, description="List of role IDs to assign")
+    role_ids: Optional[List[str]] = Field(None, description="List of role IDs to assign")
 
 
 class UserPasswordUpdate(BaseModel):
@@ -81,7 +81,7 @@ class UserPasswordUpdate(BaseModel):
 
 class RoleInfo(BaseModel):
     """Role information for user responses."""
-    id: int
+    id: str
     name: str
     description: Optional[str] = None
 
@@ -91,7 +91,7 @@ class RoleInfo(BaseModel):
 
 class UserResponse(BaseModel):
     """Schema for user response."""
-    id: int
+    id: str
     username: str
     email: str
     first_name: Optional[str] = None
@@ -110,6 +110,10 @@ class UserResponse(BaseModel):
 
     class Config:
         from_attributes = True
+        json_encoders = {
+            # Handle UUID serialization
+            'UUID': str
+        }
 
     @classmethod
     def from_orm(cls, user):
@@ -122,13 +126,13 @@ class UserResponse(BaseModel):
         if hasattr(user, 'roles') and user.roles:
             for role in user.roles:
                 roles.append(RoleInfo(
-                    id=role.id,
+                    id=str(role.id),
                     name=role.name,
                     description=getattr(role, 'description', None)
                 ))
         
         return cls(
-            id=user.id,
+            id=str(user.id),
             username=user.username,
             email=user.email,
             first_name=user.first_name,
@@ -161,14 +165,14 @@ class UserSearchParams(BaseModel):
     search: Optional[str] = Field(None, description="Search term for username, email, or name")
     is_active: Optional[bool] = Field(None, description="Filter by active status")
     is_verified: Optional[bool] = Field(None, description="Filter by verification status")
-    role_id: Optional[int] = Field(None, description="Filter by role ID")
+    role_id: Optional[str] = Field(None, description="Filter by role ID")
     page: int = Field(1, ge=1, description="Page number")
     per_page: int = Field(20, ge=1, le=100, description="Items per page")
 
 
 class UserRoleUpdate(BaseModel):
     """Schema for updating user roles."""
-    role_ids: List[int] = Field(..., description="List of role IDs to assign")
+    role_ids: List[str] = Field(..., description="List of role IDs to assign")
 
 
 class UserProfileUpdate(BaseModel):
@@ -227,8 +231,8 @@ class EmailVerificationConfirm(BaseModel):
 
 class UserActivityLog(BaseModel):
     """Schema for user activity log entry."""
-    id: int
-    user_id: int
+    id: str
+    user_id: str
     action: str
     details: Optional[dict] = None
     ip_address: Optional[str] = None
