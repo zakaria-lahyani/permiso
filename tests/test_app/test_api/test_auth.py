@@ -440,12 +440,22 @@ class TestAuthIntrospectEndpoint:
     """Test /api/v1/auth/introspect endpoint."""
 
     @pytest.mark.integration
-    async def test_token_introspect_active(self, async_client: AsyncClient, test_access_token: str):
+    async def test_token_introspect_active(self, async_client: AsyncClient, test_user):
         """Test introspection of active token."""
+        # Create a token specifically with admin:tokens scope
+        from app.core.jwt import jwt_service
+        admin_token = jwt_service.create_access_token(
+            subject=str(test_user.id),
+            scopes=["admin:tokens"],
+            audience=["test-api"],
+            username=test_user.username,
+            email=test_user.email,
+        )
+        
         response = await async_client.post(
             "/api/v1/auth/introspect",
-            headers={"Authorization": f"Bearer {test_access_token}"},
-            json={"token": test_access_token}
+            headers={"Authorization": f"Bearer {admin_token}"},
+            json={"token": admin_token}
         )
         
         assert response.status_code == 200

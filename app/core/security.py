@@ -178,6 +178,7 @@ async def get_current_token_payload(
         token = SecurityUtils.extract_bearer_token(credentials)
         payload = jwt_service.validate_token(token)
         
+        
         # Check if token is revoked
         jti = payload.get(JWTClaims.JWT_ID)
         if jti and await SecurityUtils.is_token_revoked(jti, redis):
@@ -291,10 +292,11 @@ def require_scopes(required_scopes: List[str]):
     Returns:
         FastAPI dependency function
     """
-    async def check_scopes(payload: dict = Depends(get_current_token_payload)) -> dict:
+    async def check_scopes(token_payload: dict = Depends(get_current_token_payload)) -> dict:
         try:
-            token_scopes = payload.get(JWTClaims.SCOPES, [])
+            token_scopes = token_payload.get(JWTClaims.SCOPES, [])
             missing_scopes = set(required_scopes) - set(token_scopes)
+            
             
             if missing_scopes:
                 raise InsufficientScopeError(
@@ -302,7 +304,7 @@ def require_scopes(required_scopes: List[str]):
                     required_scopes=list(missing_scopes),
                 )
             
-            return payload
+            return token_payload
         
         except InsufficientScopeError as e:
             raise HTTPException(
@@ -311,8 +313,8 @@ def require_scopes(required_scopes: List[str]):
             )
     
     # Create a simple function for tests to access
-    def wrapped_check_scopes(payload: dict) -> dict:
-        token_scopes = payload.get(JWTClaims.SCOPES, [])
+    def wrapped_check_scopes(token_payload: dict) -> dict:
+        token_scopes = token_payload.get(JWTClaims.SCOPES, [])
         missing_scopes = set(required_scopes) - set(token_scopes)
         
         if missing_scopes:
@@ -321,7 +323,7 @@ def require_scopes(required_scopes: List[str]):
                 required_scopes=list(missing_scopes),
             )
         
-        return payload
+        return token_payload
     
     check_scopes.__wrapped__ = wrapped_check_scopes
     return check_scopes
@@ -337,16 +339,16 @@ def require_roles(required_roles: List[str]):
     Returns:
         FastAPI dependency function
     """
-    async def check_roles(user = Depends(get_current_user)):
+    async def check_roles(current_user = Depends(get_current_user)):
         try:
-            user_roles = await user.get_role_names()
+            user_roles = await current_user.get_role_names()
             if not any(role in user_roles for role in required_roles):
                 raise AuthorizationError(
                     f"Insufficient permissions. Required roles: {', '.join(required_roles)}",
                     details={"required_roles": required_roles, "user_roles": user_roles},
                 )
             
-            return user
+            return current_user
         
         except AuthorizationError as e:
             raise HTTPException(
@@ -355,15 +357,15 @@ def require_roles(required_roles: List[str]):
             )
     
     # Create a simple function for tests to access
-    async def wrapped_check_roles(user):
-        user_roles = await user.get_role_names()
+    async def wrapped_check_roles(current_user):
+        user_roles = await current_user.get_role_names()
         if not any(role in user_roles for role in required_roles):
             raise AuthorizationError(
                 f"Insufficient permissions. Required roles: {', '.join(required_roles)}",
                 details={"required_roles": required_roles, "user_roles": user_roles},
             )
         
-        return user
+        return current_user
     
     check_roles.__wrapped__ = wrapped_check_roles
     return check_roles
@@ -497,4 +499,4 @@ async def get_optional_current_user(
 CurrentUser = Depends(get_current_user)
 CurrentServiceClient = Depends(get_current_service_client)
 OptionalCurrentUser = Depends(get_optional_current_user)
-AdminUser = Depends(require_admin())
+AdminUser = require_admin()

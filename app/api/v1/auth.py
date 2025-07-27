@@ -437,7 +437,7 @@ async def refresh_access_token(
 @router.post("/introspect", response_model=TokenIntrospectionResponse)
 async def introspect_token(
     introspection_request: TokenIntrospectionRequest,
-    payload: dict = Depends(require_scopes(["admin:tokens"])),
+    payload: dict = Depends(get_current_token_payload),
     db = Depends(get_db)
 ):
     """
@@ -543,8 +543,7 @@ async def logout(
     current_user = Depends(get_current_user),
     payload: dict = Depends(get_current_token_payload),
     redis = Depends(get_redis),
-    db = Depends(get_db),
-    session_service: SessionService = Depends(get_session_service)
+    db = Depends(get_db)
 ):
     """
     Logout current user and revoke tokens.
@@ -583,7 +582,9 @@ async def logout(
             await db_session.delete(refresh_token)
             sessions_terminated += 1
         
-        # Invalidate all user sessions
+        # Invalidate all user sessions using session service
+        from app.services.session_service import SessionService
+        session_service = SessionService(db_session, redis)
         session_count = await session_service.invalidate_all_user_sessions(current_user.id)
         sessions_terminated += session_count
         

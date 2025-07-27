@@ -238,6 +238,20 @@ async def admin_scope(db_session: AsyncSession) -> Scope:
 
 
 @pytest.fixture
+async def admin_tokens_scope(db_session: AsyncSession) -> Scope:
+    """Create admin tokens scope."""
+    scope = Scope(
+        name="admin:tokens",
+        description="Manage tokens",
+        resource="tokens"
+    )
+    db_session.add(scope)
+    await db_session.commit()
+    await db_session.refresh(scope)
+    return scope
+
+
+@pytest.fixture
 async def test_user(db_session: AsyncSession, test_role: Role) -> User:
     """Create test user."""
     user = User(
@@ -293,10 +307,10 @@ async def test_users(db_session: AsyncSession, test_role: Role, admin_role: Role
     """Create multiple test users."""
     users = []
     
-    # Create test user
+    # Create test user with unique email
     test_user = User(
-        username="testuser",
-        email="test@example.com",
+        username="testuser_bulk",
+        email="testuser_bulk@example.com",
         password_hash=hash_password("TestPassword123!"),
         first_name="Test",
         last_name="User",
@@ -305,10 +319,10 @@ async def test_users(db_session: AsyncSession, test_role: Role, admin_role: Role
     test_user.roles.append(test_role)
     users.append(test_user)
     
-    # Create admin user
+    # Create admin user with unique email
     admin_user = User(
-        username="admin",
-        email="admin@example.com",
+        username="admin_bulk",
+        email="admin_bulk@example.com",
         password_hash=hash_password("AdminPassword123!"),
         first_name="Admin",
         last_name="User",
@@ -383,7 +397,7 @@ def test_access_token(test_user: User) -> str:
     """Create test access token."""
     return jwt_service.create_access_token(
         subject=str(test_user.id),
-        scopes=["read:test"],
+        scopes=["read:test", "admin:tokens"],
         audience=["test-api"],
         username=test_user.username,
         email=test_user.email,
@@ -400,6 +414,18 @@ def admin_access_token(admin_user: User) -> str:
         roles=["admin"],
         username=admin_user.username,
         email=admin_user.email,
+    )
+
+
+@pytest.fixture
+def user_access_token(test_user: User) -> str:
+    """Create regular user access token."""
+    return jwt_service.create_access_token(
+        subject=str(test_user.id),
+        scopes=["read:test"],
+        audience=["test-api"],
+        username=test_user.username,
+        email=test_user.email,
     )
 
 

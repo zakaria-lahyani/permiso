@@ -16,7 +16,8 @@ from app.core.security import (
     get_current_user,
     require_admin,
     require_scopes,
-    require_roles
+    require_roles,
+    AdminUser
 )
 from app.core.exceptions import (
     UserNotFoundError,
@@ -131,8 +132,8 @@ async def list_users(
     role_id: Optional[int] = Query(None, description="Filter by role ID"),
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(20, ge=1, le=100, description="Items per page"),
-    current_user = Depends(require_admin()),
-    db = Depends(get_db)
+    current_user = Depends(AdminUser),
+    db: AsyncSession = Depends(get_db)
 ):
     """
     List users with pagination and filtering.
