@@ -1,0 +1,132 @@
+version: '3.8'
+
+services:
+  # PostgreSQL test database
+  postgres-test:
+    image: postgres:15-alpine
+    container_name: permiso-postgres-test
+    environment:
+      POSTGRES_DB: permiso_test
+      POSTGRES_USER: permiso_test
+      POSTGRES_PASSWORD: permiso_test_password
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+      - ./scripts/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U permiso_test -d permiso_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - permiso-test-network
+
+  # Redis test cache
+  redis-test:
+    image: redis:7-alpine
+    container_name: permiso-redis-test
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_test_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - permiso-test-network
+
+  # permiso application for testing
+  permiso-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: testing
+    container_name: permiso-app-test
+    environment:
+      # Application settings
+      ENVIRONMENT: testing
+      DEBUG: "true"
+      
+      # Database configuration
+      DATABASE_URL: postgresql+asyncpg://permiso_test:permiso_test_password@postgres-test:5432/permiso_test
+      DATABASE_ECHO: "false"
+      
+      # Redis configuration
+      REDIS_URL: redis://redis-test:6379/0
+      
+      # JWT configuration
+      JWT_SECRET_KEY: test-secret-key-for-testing-only
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 15
+      REFRESH_TOKEN_EXPIRE_DAYS: 7
+      
+      # Security settings (relaxed for testing)
+      PASSWORD_MIN_LENGTH: 6
+      RATE_LIMIT_LOGIN: 1000/minute
+      RATE_LIMIT_REGISTER: 1000/hour
+      RATE_LIMIT_API: 10000/minute
+      
+      # CORS settings
+      ALLOWED_ORIGINS: '["http://localhost:3000", "http://localhost:8080"]'
+      ALLOWED_HOSTS: '["localhost", "127.0.0.1", "*"]'
+      
+      # Logging
+      LOG_LEVEL: DEBUG
+      LOG_FORMAT: json
+      
+      # Test-specific settings
+      PYTEST_CURRENT_TEST: "true"
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    volumes:
+      - .:/app
+      - test_coverage:/app/htmlcov
+    networks:
+      - permiso-test-network
+    command: >
+      sh -c "
+        echo 'Waiting for services to be ready...' &&
+        sleep 5 &&
+        echo 'Running database migrations...' &&
+        poetry run alembic upgrade head &&
+        echo 'Starting test execution...' &&
+        poetry run pytest tests/ -v --tb=short --cov=app --cov-report=term-missing --cov-report=html --cov-fail-under=80 --maxfail=5
+      "
+
+  # Test database migration service
+  permiso-migrate-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: testing
+    container_name: permiso-migrate-test
+    environment:
+      DATABASE_URL: postgresql+asyncpg://permiso_test:permiso_test_password@postgres-test:5432/permiso_test
+      ENVIRONMENT: testing
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    networks:
+      - permiso-test-network
+    command: poetry run alembic upgrade head
+
+volumes:
+  postgres_test_data:
+    driver: local
+  redis_test_data:
+    driver: local
+  test_coverage:
+    driver: local
+
+networks:
+  permiso-test-network:
+    driver: bridge
