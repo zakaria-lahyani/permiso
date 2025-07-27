@@ -335,3 +335,27 @@ def generate_secure_password(length: int = 16) -> str:
     secrets.SystemRandom().shuffle(password)
     
     return "".join(password)
+
+
+def derive_key(password: str, salt: bytes, iterations: int = 100000, key_length: int = 32) -> bytes:
+    """
+    Derive a cryptographic key from a password using PBKDF2.
+    
+    Args:
+        password: Password to derive key from
+        salt: Salt bytes for key derivation
+        iterations: Number of PBKDF2 iterations
+        key_length: Length of derived key in bytes
+        
+    Returns:
+        Derived key bytes
+    """
+    import hashlib
+    
+    return hashlib.pbkdf2_hmac(
+        'sha256',
+        password.encode('utf-8'),
+        salt,
+        iterations,
+        key_length
+    )

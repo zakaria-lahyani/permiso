@@ -132,7 +132,7 @@ def main():
         sys.exit(1)
     
     test_type = sys.argv[1].lower()
-    
+    test_type = "all"
     success = False
     
     if test_type == "unit":
