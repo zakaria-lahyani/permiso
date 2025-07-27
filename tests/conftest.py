@@ -210,6 +210,20 @@ async def test_scope(db_session: AsyncSession) -> Scope:
 
 
 @pytest.fixture
+async def service_api_scope(db_session: AsyncSession) -> Scope:
+    """Create service API scope."""
+    scope = Scope(
+        name="service:api",
+        description="Service API access",
+        resource="api"
+    )
+    db_session.add(scope)
+    await db_session.commit()
+    await db_session.refresh(scope)
+    return scope
+
+
+@pytest.fixture
 async def admin_scope(db_session: AsyncSession) -> Scope:
     """Create admin scope."""
     scope = Scope(
@@ -330,7 +344,7 @@ async def test_users(db_session: AsyncSession, test_role: Role, admin_role: Role
 
 
 @pytest.fixture
-async def test_service_client(db_session: AsyncSession, test_scope: Scope) -> ServiceClient:
+async def test_service_client(db_session: AsyncSession, test_scope: Scope, service_api_scope: Scope) -> ServiceClient:
     """Create test service client."""
     client = ServiceClient(
         client_id="test-service",
@@ -341,6 +355,7 @@ async def test_service_client(db_session: AsyncSession, test_scope: Scope) -> Se
         access_token_lifetime=3600,
     )
     client.scopes.append(test_scope)
+    client.scopes.append(service_api_scope)
     db_session.add(client)
     await db_session.commit()
     await db_session.refresh(client)

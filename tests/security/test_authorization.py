@@ -110,7 +110,10 @@ class TestScopeBasedAuthorization:
     async def test_scope_based_api_access(self, async_client: AsyncClient):
         """Test scope-based API access control."""
         # Create user with limited scopes
+        import uuid
+        user_id = uuid.uuid4()
         user = User(
+            id=user_id,
             username="limited_user",
             email="limited@example.com",
             password_hash=hash_password("LimitedUser123!"),

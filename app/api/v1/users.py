@@ -1,14 +1,16 @@
 """User management API endpoints for Keystone authentication system."""
 
 import math
+import asyncio
 from datetime import datetime, timedelta
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_, and_
 from sqlalchemy.orm import selectinload
 
 from app.config.database import get_db
+from app.config.redis import get_redis
 from app.core.password import hash_password, verify_password
 from app.core.security import (
     get_current_user,
@@ -45,7 +47,9 @@ router = APIRouter()
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register_user(
     user_data: UserCreate,
-    db = Depends(get_db)
+    request: Request,
+    db = Depends(get_db),
+    redis = Depends(get_redis)
 ):
     """
     Register a new user account.
@@ -54,6 +58,10 @@ async def register_user(
     Public endpoint - no authentication required.
     """
     try:
+        # Check rate limiting first
+        ip_address = request.client.host if request.client else "unknown"
+        await _check_registration_rate_limit(redis, ip_address)
+        
         # Handle async generator properly
         try:
             if hasattr(db, '__anext__'):
@@ -295,6 +303,18 @@ async def get_current_user_profile(
 ):
     """
     Get current user's profile.
+    
+    Returns the authenticated user's information.
+    """
+    return UserResponse.from_orm(current_user)
+
+
+@router.get("/profile", response_model=UserResponse)
+async def get_user_profile(
+    current_user = Depends(get_current_user)
+):
+    """
+    Get current user's profile (alias for /me).
     
     Returns the authenticated user's information.
     """
@@ -797,6 +817,52 @@ async def request_email_verification(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"error": "internal_error", "error_description": str(e)}
         )
+
+
+async def _check_registration_rate_limit(redis, ip_address: str):
+    """Check registration rate limiting."""
+    try:
+        # Handle the case where redis might be a coroutine from dependency injection
+        if asyncio.iscoroutine(redis):
+            redis_client = await redis
+        elif callable(redis) and not hasattr(redis, 'get'):
+            # If redis is a function, try to call it
+            try:
+                redis_client = await redis() if asyncio.iscoroutinefunction(redis) else redis()
+            except Exception:
+                return  # Skip rate limiting if Redis is not available
+        else:
+            redis_client = redis
+        
+        # Rate limit: 3 registrations per hour per IP
+        rate_limit_key = f"registration_rate_limit:{ip_address}"
+        current_count = await redis_client.get(rate_limit_key)
+        
+        if current_count is None:
+            current_count = 0
+        else:
+            current_count = int(current_count)
+        
+        # Check if rate limit exceeded (3 per hour)
+        if current_count >= 3:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail={
+                    "error": "rate_limit_exceeded",
+                    "error_description": "Too many registration attempts. Please try again later."
+                },
+                headers={"Retry-After": "3600"}  # 1 hour
+            )
+        
+        # Increment counter
+        await redis_client.incr(rate_limit_key)
+        await redis_client.expire(rate_limit_key, 3600)  # 1 hour expiry
+        
+    except HTTPException:
+        raise
+    except Exception:
+        # Don't fail registration if Redis is unavailable
+        pass
 
 
 @router.post("/email-verification/confirm")

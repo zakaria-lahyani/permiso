@@ -50,6 +50,26 @@ app.add_middleware(
 )
 
 
+# Security headers middleware
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    """Add security headers to all responses."""
+    response = await call_next(request)
+    
+    # Security headers
+    response.headers["x-content-type-options"] = "nosniff"
+    response.headers["x-frame-options"] = "DENY"
+    response.headers["x-xss-protection"] = "1; mode=block"
+    response.headers["referrer-policy"] = "strict-origin-when-cross-origin"
+    response.headers["permissions-policy"] = "geolocation=(), microphone=(), camera=()"
+    
+    # Only add HSTS in production with HTTPS
+    if not settings.DEBUG and request.url.scheme == "https":
+        response.headers["strict-transport-security"] = "max-age=31536000; includeSubDomains"
+    
+    return response
+
+
 # Health check endpoint
 @app.get("/health")
 async def health_check():

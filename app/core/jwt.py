@@ -27,6 +27,9 @@ class JWTClaims:
     CLIENT_ID = "client_id"
     USERNAME = "username"
     EMAIL = "email"
+    IS_SUPERUSER = "is_superuser"
+    IS_TRUSTED = "is_trusted"
+    EXPIRES_AT = "exp"  # Alias for EXPIRATION
 
 
 class TokenType:
@@ -237,7 +240,15 @@ class JWTService:
         except ExpiredSignatureError:
             raise AuthenticationError("Token has expired")
         except InvalidTokenError as e:
-            raise AuthenticationError(f"Invalid token: {str(e)}")
+            # Handle malformed tokens gracefully without exposing internal details
+            error_msg = str(e).lower()
+            if "invalid header" in error_msg or "decode" in error_msg or "utf-8" in error_msg:
+                raise AuthenticationError("Invalid token format")
+            else:
+                raise AuthenticationError(f"Invalid token: {str(e)}")
+        except Exception as e:
+            # Catch any other unexpected errors during token decoding
+            raise AuthenticationError("Invalid token format")
 
     def validate_token(
         self,
@@ -304,8 +315,22 @@ class JWTService:
 
         except ExpiredSignatureError:
             raise AuthenticationError("Token has expired")
+        except AuthenticationError:
+            # Re-raise AuthenticationError (like audience validation) without modification
+            raise
+        except AuthorizationError:
+            # Re-raise AuthorizationError without modification
+            raise
         except InvalidTokenError as e:
-            raise AuthenticationError(f"Invalid token: {str(e)}")
+            # Handle malformed tokens gracefully without exposing internal details
+            error_msg = str(e).lower()
+            if "invalid header" in error_msg or "decode" in error_msg or "utf-8" in error_msg:
+                raise AuthenticationError("Invalid token format")
+            else:
+                raise AuthenticationError(f"Invalid token: {str(e)}")
+        except Exception as e:
+            # Catch any other unexpected errors during token validation
+            raise AuthenticationError("Invalid token format")
 
     def extract_token_info(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """

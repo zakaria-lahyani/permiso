@@ -807,7 +807,7 @@ class TestAuditLogging:
         # This test would verify that failed login attempts are logged
         # for security monitoring and incident response
         
-        with patch('app.core.audit.audit_logger') as mock_logger:
+        with patch('app.api.v1.auth.audit_logger') as mock_logger:
             response = await async_client.post(
                 "/api/v1/auth/token",
                 data={
@@ -837,7 +837,7 @@ class TestAuditLogging:
         
         await async_client.post("/api/v1/users/register", json=registration_data)
         
-        with patch('app.core.audit.audit_logger') as mock_logger:
+        with patch('app.api.v1.auth.audit_logger') as mock_logger:
             response = await async_client.post(
                 "/api/v1/auth/token",
                 data={

@@ -31,6 +31,7 @@ from app.models.user import User
 from app.models.service_client import ServiceClient
 from app.models.refresh_token import RefreshToken
 from app.services.session_service import SessionService, get_session_service
+from app.core.audit import audit_logger
 from app.schemas.auth import (
     TokenRequest,
     ServiceTokenRequest,
@@ -79,6 +80,15 @@ async def login_for_access_token(
         if not user:
             # Increment failed login attempts for rate limiting
             await _track_failed_login(redis, form_data.username, request.client.host)
+            # Log failed authentication attempt
+            audit_logger.log_security_event(
+                event_type="authentication_failure",
+                user_id=None,
+                username=form_data.username,
+                ip_address=request.client.host if request.client else "unknown",
+                user_agent=request.headers.get("user-agent"),
+                details={"reason": "user_not_found"}
+            )
             raise AuthenticationError("Invalid username or password", error_code="invalid_grant")
         
         # Verify password
@@ -89,6 +99,15 @@ async def login_for_access_token(
             )
             await db_session.commit()
             await _track_failed_login(redis, form_data.username, request.client.host)
+            # Log failed authentication attempt
+            audit_logger.log_security_event(
+                event_type="authentication_failure",
+                user_id=str(user.id),
+                username=user.username,
+                ip_address=request.client.host if request.client else "unknown",
+                user_agent=request.headers.get("user-agent"),
+                details={"reason": "invalid_password"}
+            )
             raise AuthenticationError("Invalid username or password", error_code="invalid_grant")
         
         # Check if user account is active
@@ -168,6 +187,16 @@ async def login_for_access_token(
         # Track successful login
         await _track_successful_login(redis, user.username, ip_address)
         
+        # Log successful authentication
+        audit_logger.log_security_event(
+            event_type="authentication_success",
+            user_id=str(user.id),
+            username=user.username,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            details={"session_id": session.session_id}
+        )
+        
         return TokenResponse(
             access_token=access_token,
             token_type="Bearer",
@@ -185,9 +214,11 @@ async def login_for_access_token(
         elif isinstance(e, UserLockedError):
             status_code = status.HTTP_423_LOCKED
             
-        raise HTTPException(
+        # Return error directly, not nested under "detail"
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
             status_code=status_code,
-            detail=error_detail,
+            content=error_detail,
             headers={"WWW-Authenticate": "Bearer"}
         )
     except Exception as e:
@@ -250,17 +281,26 @@ async def service_token(
         requested_scopes = scope.split() if scope else client_scopes
         granted_scopes = list(set(requested_scopes) & set(client_scopes))
         
-        # Create service token
-        service_payload = {
-            JWTClaims.CLIENT_ID: client.client_id,
-            JWTClaims.SCOPES: granted_scopes,
-            JWTClaims.TOKEN_TYPE: TokenType.SERVICE,
-            JWTClaims.IS_TRUSTED: client.is_trusted
-        }
+        # Validate that all requested scopes are available to the client
+        # Only reject if NO requested scopes are available (completely invalid)
+        if scope and requested_scopes and not granted_scopes:  # Only validate if scopes were explicitly requested and none granted
+            from fastapi.responses import JSONResponse
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "error": "invalid_scope",
+                    "error_description": f"No valid scopes available from requested: {', '.join(requested_scopes)}"
+                },
+                headers={"WWW-Authenticate": "Bearer"}
+            )
         
+        # Create service token
         access_token = jwt_service.create_service_token(
-            service_payload,
-            expires_delta=timedelta(seconds=client.access_token_lifetime)
+            client_id=client.client_id,
+            scopes=granted_scopes,
+            audience=[settings.JWT_ISSUER],
+            expires_delta=timedelta(seconds=client.access_token_lifetime),
+            additional_claims={"is_trusted": client.is_trusted}
         )
         
         # Update client usage
@@ -279,9 +319,11 @@ async def service_token(
         if isinstance(e, ServiceClientDisabledError):
             status_code = status.HTTP_403_FORBIDDEN
             
-        raise HTTPException(
+        error_detail = e.to_dict() if hasattr(e, 'to_dict') else {"error": "service_error", "error_description": str(e)}
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
             status_code=status_code,
-            detail=e.to_dict(),
+            content=error_detail,
             headers={"WWW-Authenticate": "Bearer"}
         )
 
@@ -325,15 +367,20 @@ async def refresh_access_token(
         user = await SecurityUtils.get_user_by_id(user_id, db_session)
         
         # Verify refresh token exists in database
-        token_hash = hash_password(refresh_request.refresh_token)
+        # Get all refresh tokens for the user and verify using password verification
         result = await db_session.execute(
             select(RefreshToken).where(
                 RefreshToken.user_id == user.id,
-                RefreshToken.token_hash == token_hash,
                 RefreshToken.expires_at > datetime.utcnow()
             )
         )
-        db_refresh_token = result.scalar_one_or_none()
+        refresh_tokens = result.scalars().all()
+        
+        db_refresh_token = None
+        for token_record in refresh_tokens:
+            if verify_password(refresh_request.refresh_token, token_record.token_hash):
+                db_refresh_token = token_record
+                break
         
         if not db_refresh_token:
             raise InvalidTokenError("Refresh token not found or expired")
@@ -341,26 +388,25 @@ async def refresh_access_token(
         # Get user scopes
         user_scopes = await user.get_scopes()
         
-        # Create new access token
-        access_payload = {
-            JWTClaims.SUBJECT: str(user.id),
-            JWTClaims.USERNAME: user.username,
-            JWTClaims.EMAIL: user.email,
-            JWTClaims.SCOPES: user_scopes,
-            JWTClaims.TOKEN_TYPE: TokenType.ACCESS,
-            JWTClaims.IS_SUPERUSER: user.is_superuser
-        }
+        # Get user roles
+        user_roles = [role.name for role in user.roles] if user.roles else []
         
-        access_token = jwt_service.create_access_token(access_payload)
+        # Create new access token using the proper JWT service method
+        access_token = jwt_service.create_access_token(
+            subject=str(user.id),
+            scopes=user_scopes,
+            audience=[settings.JWT_ISSUER],
+            roles=user_roles,
+            username=user.username,
+            email=user.email,
+            additional_claims={"is_superuser": user.is_superuser}
+        )
         
-        # Create new refresh token
-        refresh_payload = {
-            JWTClaims.SUBJECT: str(user.id),
-            JWTClaims.USERNAME: user.username,
-            JWTClaims.TOKEN_TYPE: TokenType.REFRESH
-        }
-        
-        new_refresh_token = jwt_service.create_refresh_token(refresh_payload)
+        # Create new refresh token using the proper JWT service method
+        new_refresh_token = jwt_service.create_refresh_token(
+            subject=str(user.id),
+            username=user.username
+        )
         
         # Update refresh token in database
         db_refresh_token.token_hash = hash_password(new_refresh_token)
@@ -370,19 +416,20 @@ async def refresh_access_token(
         return TokenResponse(
             access_token=access_token,
             token_type="Bearer",
-            expires_in=settings.access_token_expire_minutes * 60,
+            expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
             refresh_token=new_refresh_token,
             scope=" ".join(user_scopes) if user_scopes else None
         )
         
-    except (InvalidTokenError, UserNotFoundError, UserDisabledError, UserLockedError) as e:
+    except (InvalidTokenError, UserNotFoundError, UserDisabledError, UserLockedError, AuthenticationError) as e:
         # Use invalid_grant for refresh token errors
         error_detail = e.to_dict() if hasattr(e, 'to_dict') else {"error": "invalid_grant", "error_description": str(e)}
-        if "error" not in error_detail:
-            error_detail["error"] = "invalid_grant"
-        raise HTTPException(
+        # Override error code to invalid_grant for OAuth2 compliance
+        error_detail["error"] = "invalid_grant"
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=error_detail,
+            content=error_detail,
             headers={"WWW-Authenticate": "Bearer"}
         )
 

@@ -262,13 +262,14 @@ class User(BaseModel):
             return True
         return await self.has_role("admin")
 
-    async def can_access_resource(self, resource: str, action: str = "read") -> bool:
+    async def can_access_resource(self, resource: str, action: str = "read", context: dict = None) -> bool:
         """
         Check if user can access a resource with specific action.
         
         Args:
             resource: Resource name (e.g., 'profile', 'trades')
             action: Action to perform (e.g., 'read', 'write', 'admin')
+            context: Additional context for access control (e.g., {'user_id': 'target-user-id'})
             
         Returns:
             True if user can access the resource
@@ -276,6 +277,25 @@ class User(BaseModel):
         # Superusers can access everything
         if self.is_superuser:
             return True
+        
+        # Special handling for sensitive resources that users should never modify themselves
+        sensitive_resources = ["roles", "permissions", "scopes"]
+        if resource in sensitive_resources and action in ["write", "admin"]:
+            # Only admins can modify roles/permissions/scopes, even their own
+            if not await self.has_scope("admin:users") and not await self.has_scope("admin:system"):
+                return False
+        
+        # Check resource ownership if context provided
+        if context and "user_id" in context:
+            target_user_id = context["user_id"]
+            # Users can access their own resources (except sensitive ones handled above)
+            if str(self.id) == str(target_user_id):
+                # For sensitive resources, we already checked admin permissions above
+                if resource not in sensitive_resources or action == "read":
+                    return True
+            # For other users' resources, need admin permissions
+            if not await self.has_scope("admin:users") and not await self.has_scope("admin:system"):
+                return False
         
         # Check for specific scope
         scope_name = f"{action}:{resource}"
