@@ -197,7 +197,7 @@ async def get_current_token_payload(
 async def get_current_user(
     payload: dict = Depends(get_current_token_payload),
     db = Depends(get_db),
-):
+) -> User:
     """
     Get current authenticated user.
     
