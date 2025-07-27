@@ -16,7 +16,8 @@ from app.core.security import (
     get_current_user,
     require_admin,
     require_scopes,
-    require_roles
+    require_roles,
+    AdminUser
 )
 from app.core.exceptions import (
     UserNotFoundError,
@@ -120,7 +121,7 @@ async def list_users(
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(20, ge=1, le=100, description="Items per page"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin())
+    current_user: User = AdminUser
 ):
     """
     List users with pagination and filtering.
@@ -545,7 +546,7 @@ async def update_user(
 async def delete_user(
     user_id: str,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin())
+    current_user: User = AdminUser
 ):
     """
     Delete user by ID.
@@ -668,7 +669,7 @@ async def update_user_roles(
     user_id: str,
     role_data: UserRoleUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin())
+    current_user: User = AdminUser
 ):
     """
     Update user roles.
@@ -729,7 +730,7 @@ async def update_user_roles(
 @router.get("/stats/overview", response_model=UserStats)
 async def get_user_stats(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin())
+    current_user: User = AdminUser
 ):
     """
     Get user statistics overview.

@@ -612,4 +612,40 @@ async def get_optional_current_user(
 CurrentUser = Depends(get_current_user)
 CurrentServiceClient = Depends(get_current_service_client)
 OptionalCurrentUser = Depends(get_optional_current_user)
-AdminUser = require_admin()
+
+# Simple admin dependency function
+async def get_admin_user(current_user: User = Depends(get_current_user)) -> User:
+    """
+    Get current authenticated admin user.
+    
+    Args:
+        current_user: Current authenticated user
+        
+    Returns:
+        Current user if they have admin role
+        
+    Raises:
+        HTTPException: If user is not admin
+    """
+    try:
+        user_roles = await current_user.get_role_names()
+        if "admin" not in user_roles:
+            raise AuthorizationError(
+                "Insufficient permissions. Required roles: admin",
+                details={"required_roles": ["admin"], "user_roles": user_roles},
+            )
+        
+        return current_user
+    
+    except AuthorizationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(e),
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Role check failed: {str(e)}",
+        )
+
+AdminUser = Depends(get_admin_user)
