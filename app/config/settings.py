@@ -6,7 +6,7 @@ from typing import List, Optional
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings
-from pydantic import validator
+from pydantic import field_validator
 
 
 class Settings(BaseSettings):
@@ -99,42 +99,48 @@ class Settings(BaseSettings):
     REDOC_URL: Optional[str] = "/redoc"
     OPENAPI_URL: Optional[str] = "/openapi.json"
 
-    @validator('JWT_SECRET_KEY')
-    def validate_jwt_secret_key(cls, v, values):
+    @field_validator('JWT_SECRET_KEY')
+    @classmethod
+    def validate_jwt_secret_key(cls, v, info):
         # Allow shorter keys in testing environment
         # Check both the values dict and environment variables
-        environment = values.get('ENVIRONMENT') or os.environ.get('ENVIRONMENT', 'production')
+        environment = os.environ.get('ENVIRONMENT', 'production')
         min_length = 16 if environment == 'testing' else 32
         
         if len(v) < min_length:
             raise ValueError(f'JWT secret key must be at least {min_length} characters long')
         return v
 
-    @validator('PASSWORD_MIN_LENGTH')
+    @field_validator('PASSWORD_MIN_LENGTH')
+    @classmethod
     def validate_password_min_length(cls, v):
         if v < 6:
             raise ValueError('Password minimum length must be at least 6')
         return v
 
-    @validator('MAX_LOGIN_ATTEMPTS')
+    @field_validator('MAX_LOGIN_ATTEMPTS')
+    @classmethod
     def validate_max_login_attempts(cls, v):
         if v <= 0:
             raise ValueError('Max login attempts must be greater than 0')
         return v
 
-    @validator('ACCOUNT_LOCKOUT_MINUTES')
+    @field_validator('ACCOUNT_LOCKOUT_MINUTES')
+    @classmethod
     def validate_account_lockout_minutes(cls, v):
         if v < 0:
             raise ValueError('Account lockout minutes must be non-negative')
         return v
 
-    @validator('RATE_LIMIT_PER_MINUTE')
+    @field_validator('RATE_LIMIT_PER_MINUTE')
+    @classmethod
     def validate_rate_limit_per_minute(cls, v):
         if v <= 0:
             raise ValueError('Rate limit per minute must be greater than 0')
         return v
 
-    @validator('CORS_ORIGINS', pre=True)
+    @field_validator('CORS_ORIGINS', mode='before')
+    @classmethod
     def parse_cors_origins(cls, v):
         if isinstance(v, str):
             if not v.strip():
@@ -144,7 +150,8 @@ class Settings(BaseSettings):
             return v
         return []
 
-    @validator('ALLOWED_HOSTS', pre=True)
+    @field_validator('ALLOWED_HOSTS', mode='before')
+    @classmethod
     def parse_allowed_hosts(cls, v):
         if isinstance(v, str):
             return [host.strip() for host in v.split(',')]
@@ -152,13 +159,12 @@ class Settings(BaseSettings):
             return v
         return ["localhost", "127.0.0.1", "*"]
 
-    class Config:
-        """Pydantic configuration."""
-
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = True
-        extra = "ignore"
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "case_sensitive": True,
+        "extra": "ignore"
+    }
 
     def __init__(self, **kwargs):
         """Initialize settings with production overrides."""

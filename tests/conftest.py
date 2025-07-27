@@ -146,14 +146,18 @@ async def db_session(test_engine) -> AsyncGenerator[AsyncSession, None]:
 
 
 # Override dependencies for testing
-async def override_get_db(db_session: AsyncSession = None):
+def override_get_db(db_session: AsyncSession):
     """Override database dependency for testing."""
-    yield db_session
+    async def _get_db():
+        yield db_session
+    return _get_db
 
 
-async def override_get_redis(test_redis_client: RedisClient = None):
+def override_get_redis(test_redis_client: RedisClient):
     """Override Redis dependency for testing."""
-    return test_redis_client
+    def _get_redis():
+        return test_redis_client
+    return _get_redis
 
 
 # FastAPI test client fixture
@@ -164,8 +168,8 @@ async def async_client(
 ) -> AsyncGenerator[AsyncClient, None]:
     """Create async HTTP client for testing."""
     # Override dependencies
-    app.dependency_overrides[get_db] = lambda: override_get_db(db_session)
-    app.dependency_overrides[get_redis] = lambda: override_get_redis(test_redis_client)
+    app.dependency_overrides[get_db] = override_get_db(db_session)
+    app.dependency_overrides[get_redis] = override_get_redis(test_redis_client)
     
     async with AsyncClient(app=app, base_url="http://test") as client:
         yield client

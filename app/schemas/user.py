@@ -2,8 +2,9 @@
 
 from datetime import datetime
 from typing import List, Optional
-from pydantic import BaseModel, EmailStr, Field, validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 import re
+import uuid
 
 
 class UserBase(BaseModel):
@@ -17,7 +18,8 @@ class UserBase(BaseModel):
     is_active: bool = Field(True, description="Whether the user account is active")
     is_verified: bool = Field(False, description="Whether the user's email is verified")
 
-    @validator('username')
+    @field_validator('username')
+    @classmethod
     def validate_username(cls, v):
         """Validate username format."""
         if not re.match(r'^[a-zA-Z0-9_-]+$', v):
@@ -30,7 +32,8 @@ class UserCreate(UserBase):
     password: str = Field(..., min_length=8, max_length=128, description="User's password")
     role_ids: Optional[List[str]] = Field(default=[], description="List of role IDs to assign")
 
-    @validator('password')
+    @field_validator('password')
+    @classmethod
     def validate_password(cls, v):
         """Validate password strength."""
         if len(v) < 8:
@@ -63,7 +66,8 @@ class UserPasswordUpdate(BaseModel):
     current_password: str = Field(..., description="Current password for verification")
     new_password: str = Field(..., min_length=8, max_length=128, description="New password")
 
-    @validator('new_password')
+    @field_validator('new_password')
+    @classmethod
     def validate_new_password(cls, v):
         """Validate new password strength."""
         if len(v) < 8:
@@ -81,17 +85,21 @@ class UserPasswordUpdate(BaseModel):
 
 class RoleInfo(BaseModel):
     """Role information for user responses."""
-    id: str
+    id: uuid.UUID = Field(..., description="Role ID")
     name: str
     description: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True,
+        "json_encoders": {
+            uuid.UUID: str,
+        }
+    }
 
 
 class UserResponse(BaseModel):
     """Schema for user response."""
-    id: str
+    id: uuid.UUID = Field(..., description="User ID")
     username: str
     email: str
     first_name: Optional[str] = None
@@ -107,13 +115,15 @@ class UserResponse(BaseModel):
     updated_at: datetime
     roles: List[RoleInfo] = []
     scope_names: List[str] = []
+    scopes: List[str] = []  # Add scopes field that tests expect
 
-    class Config:
-        from_attributes = True
-        json_encoders = {
-            # Handle UUID serialization
-            'UUID': str
+    model_config = {
+        "from_attributes": True,
+        "json_encoders": {
+            uuid.UUID: str,
+            datetime: lambda v: v.isoformat(),
         }
+    }
 
     @classmethod
     def from_orm(cls, user):
@@ -126,13 +136,17 @@ class UserResponse(BaseModel):
         if hasattr(user, 'roles') and user.roles:
             for role in user.roles:
                 roles.append(RoleInfo(
-                    id=str(role.id),
+                    id=role.id,  # Keep as UUID, Pydantic will handle serialization
                     name=role.name,
                     description=getattr(role, 'description', None)
                 ))
         
+        # Get scope names - use both scope_names and scopes for compatibility
+        scope_names = user_dict.get('scope_names', [])
+        scopes = user_dict.get('scopes', scope_names)  # Use scopes if available, fallback to scope_names
+        
         return cls(
-            id=str(user.id),
+            id=user.id,  # Keep as UUID, Pydantic will handle serialization
             username=user.username,
             email=user.email,
             first_name=user.first_name,
@@ -147,7 +161,8 @@ class UserResponse(BaseModel):
             created_at=user.created_at,
             updated_at=user.updated_at,
             roles=roles,
-            scope_names=user_dict.get('scope_names', [])
+            scope_names=scope_names,
+            scopes=scopes
         )
 
 
@@ -203,7 +218,8 @@ class PasswordResetConfirm(BaseModel):
     token: str = Field(..., description="Password reset token")
     new_password: str = Field(..., min_length=8, max_length=128, description="New password")
 
-    @validator('new_password')
+    @field_validator('new_password')
+    @classmethod
     def validate_new_password(cls, v):
         """Validate new password strength."""
         if len(v) < 8:
@@ -239,8 +255,9 @@ class UserActivityLog(BaseModel):
     user_agent: Optional[str] = None
     timestamp: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True
+    }
 
 
 class UserActivityResponse(BaseModel):

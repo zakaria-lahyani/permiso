@@ -41,7 +41,7 @@ AsyncSessionLocal = sessionmaker(
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
-    Dependency function to get database session.
+    Dependency function to get database session for FastAPI dependency injection.
     
     Yields:
         AsyncSession: Database session
@@ -54,6 +54,41 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             raise
         finally:
             await session.close()
+
+
+async def get_session() -> AsyncSession:
+    """
+    Get a database session directly (not for dependency injection).
+    
+    Returns:
+        AsyncSession: Database session that must be closed manually
+    """
+    return AsyncSessionLocal()
+
+
+class DatabaseManager:
+    """Database manager for handling sessions and connections."""
+    
+    @staticmethod
+    async def get_session() -> AsyncSession:
+        """Get a new database session."""
+        return AsyncSessionLocal()
+    
+    @staticmethod
+    async def close_session(session: AsyncSession) -> None:
+        """Close a database session."""
+        try:
+            await session.close()
+        except Exception:
+            pass
+    
+    @staticmethod
+    async def rollback_session(session: AsyncSession) -> None:
+        """Rollback a database session."""
+        try:
+            await session.rollback()
+        except Exception:
+            pass
 
 
 async def create_tables():

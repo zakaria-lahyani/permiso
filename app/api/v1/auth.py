@@ -69,7 +69,6 @@ async def login_for_access_token(
     try:
         # Handle async generator properly
         if hasattr(db, '__anext__'):
-            # db is an async generator, get the actual session
             db_session = await db.__anext__()
         else:
             db_session = db
@@ -247,15 +246,10 @@ async def service_token(
     """
     try:
         # Handle async generator properly
-        try:
-            if hasattr(db, '__anext__'):
-                db_session = await db.__anext__()
-            else:
-                db_session = db
-        except StopAsyncIteration:
-            from app.config.database import get_db
-            async_gen = get_db()
-            db_session = await async_gen.__anext__()
+        if hasattr(db, '__anext__'):
+            db_session = await db.__anext__()
+        else:
+            db_session = db
             
         # Get service client
         result = await db_session.execute(
@@ -343,15 +337,10 @@ async def refresh_access_token(
     """
     try:
         # Handle async generator properly
-        try:
-            if hasattr(db, '__anext__'):
-                db_session = await db.__anext__()
-            else:
-                db_session = db
-        except StopAsyncIteration:
-            from app.config.database import get_db
-            async_gen = get_db()
-            db_session = await async_gen.__anext__()
+        if hasattr(db, '__anext__'):
+            db_session = await db.__anext__()
+        else:
+            db_session = db
             
         # Validate refresh token
         payload = jwt_service.validate_token(refresh_request.refresh_token)
@@ -552,15 +541,10 @@ async def logout(
     """
     try:
         # Handle async generator properly
-        try:
-            if hasattr(db, '__anext__'):
-                db_session = await db.__anext__()
-            else:
-                db_session = db
-        except StopAsyncIteration:
-            from app.config.database import get_db
-            async_gen = get_db()
-            db_session = await async_gen.__anext__()
+        if hasattr(db, '__anext__'):
+            db_session = await db.__anext__()
+        else:
+            db_session = db
             
         sessions_terminated = 0
         

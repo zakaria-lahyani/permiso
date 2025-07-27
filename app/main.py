@@ -1,13 +1,17 @@
 """Main FastAPI application module for Keystone authentication system."""
 
+import json
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 from app.config.database import init_db, close_db
 from app.config.redis import init_redis, close_redis
 from app.config.settings import settings
+from app.core.json import CustomJSONEncoder, custom_json_serializer
 
 
 @asynccontextmanager
@@ -34,6 +38,61 @@ app = FastAPI(
     lifespan=lifespan,
     redirect_slashes=False,
 )
+
+# Configure custom JSON encoder for all responses
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse as FastAPIJSONResponse
+
+class CustomJSONResponse(FastAPIJSONResponse):
+    """Custom JSON response that uses our custom encoder."""
+    
+    def render(self, content) -> bytes:
+        return custom_json_serializer(content).encode("utf-8")
+
+# Set as default response class
+app.router.default_response_class = CustomJSONResponse
+
+# Add custom exception handlers
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handle request validation errors properly."""
+    content = {
+        "error": "validation_error",
+        "error_description": "Request validation failed",
+        "details": exc.errors()
+    }
+    return CustomJSONResponse(
+        status_code=422,
+        content=content
+    )
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    """Handle HTTP exceptions properly."""
+    content = exc.detail if isinstance(exc.detail, dict) else {
+        "error": "http_error",
+        "error_description": str(exc.detail)
+    }
+    return CustomJSONResponse(
+        status_code=exc.status_code,
+        content=content
+    )
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    """Handle general exceptions with proper JSON serialization."""
+    content = {
+        "error": "internal_server_error",
+        "error_description": "An internal server error occurred",
+        "details": {
+            "type": exc.__class__.__name__,
+            "message": str(exc)
+        }
+    }
+    return CustomJSONResponse(
+        status_code=500,
+        content=content
+    )
 
 # Add middleware
 app.add_middleware(

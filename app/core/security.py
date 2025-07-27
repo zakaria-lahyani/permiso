@@ -157,6 +157,56 @@ class SecurityUtils:
         return client
 
 
+def _get_implied_scopes(token_scopes: List[str]) -> List[str]:
+    """
+    Get scopes that are implied by the given token scopes.
+    
+    Args:
+        token_scopes: List of scopes in the token
+        
+    Returns:
+        List of implied scopes
+    """
+    implied = []
+    
+    for scope in token_scopes:
+        # Admin scopes imply read/write scopes for the same resource
+        if scope.startswith("admin:"):
+            resource = scope.split(":", 1)[1]
+            implied.extend([f"read:{resource}", f"write:{resource}"])
+        
+        # System admin implies everything
+        if scope == "admin:system":
+            implied.extend([
+                "read:profile", "write:profile",
+                "read:trades", "write:trades",
+                "admin:users", "admin:clients",
+                "service:mt5", "service:api"
+            ])
+    
+    return implied
+
+
+def _classify_scope_security_level(scope: str) -> str:
+    """
+    Classify the security level of a scope.
+    
+    Args:
+        scope: Scope name to classify
+        
+    Returns:
+        Security level classification
+    """
+    if scope.startswith("admin:"):
+        return "restricted"
+    elif scope.startswith("write:") or scope.startswith("service:"):
+        return "protected"
+    elif scope.startswith("read:"):
+        return "public"
+    else:
+        return "custom"
+
+
 async def get_current_token_payload(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     redis: RedisClient = Depends(get_redis),
@@ -196,7 +246,7 @@ async def get_current_token_payload(
 
 async def get_current_user(
     payload: dict = Depends(get_current_token_payload),
-    db = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ) -> User:
     """
     Get current authenticated user.
@@ -212,13 +262,6 @@ async def get_current_user(
         HTTPException: If user not found or invalid
     """
     try:
-        # Handle async generator properly
-        if hasattr(db, '__anext__'):
-            # db is an async generator, get the actual session
-            db_session = await db.__anext__()
-        else:
-            db_session = db
-            
         # Ensure this is a user token (not service token)
         token_type = payload.get(JWTClaims.TOKEN_TYPE)
         if token_type == TokenType.SERVICE:
@@ -228,7 +271,7 @@ async def get_current_user(
         if not user_id:
             raise AuthenticationError("Invalid token: missing user ID")
         
-        return await SecurityUtils.get_user_by_id(user_id, db_session)
+        return await SecurityUtils.get_user_by_id(user_id, db)
     
     except (AuthenticationError, UserNotFoundError, UserDisabledError, UserLockedError) as e:
         raise HTTPException(
@@ -240,7 +283,7 @@ async def get_current_user(
 
 async def get_current_service_client(
     payload: dict = Depends(get_current_token_payload),
-    db = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
 ):
     """
     Get current authenticated service client.
@@ -256,13 +299,6 @@ async def get_current_service_client(
         HTTPException: If service client not found or invalid
     """
     try:
-        # Handle async generator properly
-        if hasattr(db, '__anext__'):
-            # db is an async generator, get the actual session
-            db_session = await db.__anext__()
-        else:
-            db_session = db
-            
         # Ensure this is a service token
         token_type = payload.get(JWTClaims.TOKEN_TYPE)
         if token_type != TokenType.SERVICE:
@@ -272,7 +308,7 @@ async def get_current_service_client(
         if not client_id:
             raise AuthenticationError("Invalid token: missing client ID")
         
-        return await SecurityUtils.get_service_client_by_id(client_id, db_session)
+        return await SecurityUtils.get_service_client_by_id(client_id, db)
     
     except (AuthenticationError, ServiceClientNotFoundError, ServiceClientDisabledError) as e:
         raise HTTPException(
@@ -284,7 +320,7 @@ async def get_current_service_client(
 
 def require_scopes(required_scopes: List[str]):
     """
-    Dependency factory for scope-based authorization.
+    Dependency factory for scope-based authorization with enhanced parsing.
     
     Args:
         required_scopes: List of required scopes
@@ -295,8 +331,18 @@ def require_scopes(required_scopes: List[str]):
     async def check_scopes(token_payload: dict = Depends(get_current_token_payload)) -> dict:
         try:
             token_scopes = token_payload.get(JWTClaims.SCOPES, [])
+            
+            # Parse scopes if they come as a string
+            if isinstance(token_scopes, str):
+                token_scopes = token_scopes.split()
+            
+            # Check for exact matches first
             missing_scopes = set(required_scopes) - set(token_scopes)
             
+            # If there are missing scopes, check for implied scopes
+            if missing_scopes:
+                implied_scopes = _get_implied_scopes(token_scopes)
+                missing_scopes = missing_scopes - set(implied_scopes)
             
             if missing_scopes:
                 raise InsufficientScopeError(
@@ -306,21 +352,38 @@ def require_scopes(required_scopes: List[str]):
             
             return token_payload
         
-        except InsufficientScopeError as e:
+        except InsufficientScopeError:
+            raise
+        except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=e.to_dict(),
+                detail={"error": "scope_check_failed", "error_description": str(e)},
             )
     
     # Create a simple function for tests to access
     def wrapped_check_scopes(token_payload: dict) -> dict:
         token_scopes = token_payload.get(JWTClaims.SCOPES, [])
+        
+        # Parse scopes if they come as a string
+        if isinstance(token_scopes, str):
+            token_scopes = token_scopes.split()
+        
+        # Check for exact matches first
         missing_scopes = set(required_scopes) - set(token_scopes)
         
+        # If there are missing scopes, check for implied scopes
         if missing_scopes:
-            raise InsufficientScopeError(
-                f"Insufficient permissions. Missing scopes: {', '.join(missing_scopes)}",
-                required_scopes=list(missing_scopes),
+            implied_scopes = _get_implied_scopes(token_scopes)
+            missing_scopes = missing_scopes - set(implied_scopes)
+        
+        if missing_scopes:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error": "insufficient_scope",
+                    "error_description": f"Insufficient permissions. Missing scopes: {', '.join(missing_scopes)}",
+                    "required_scopes": list(missing_scopes),
+                },
             )
         
         return token_payload
@@ -360,9 +423,14 @@ def require_roles(required_roles: List[str]):
     async def wrapped_check_roles(current_user):
         user_roles = await current_user.get_role_names()
         if not any(role in user_roles for role in required_roles):
-            raise AuthorizationError(
-                f"Insufficient permissions. Required roles: {', '.join(required_roles)}",
-                details={"required_roles": required_roles, "user_roles": user_roles},
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error": "insufficient_role",
+                    "error_description": f"Insufficient permissions. Required roles: {', '.join(required_roles)}",
+                    "required_roles": required_roles,
+                    "user_roles": user_roles,
+                },
             )
         
         return current_user
@@ -378,12 +446,14 @@ def require_admin():
     Returns:
         FastAPI dependency function
     """
-    return require_roles(["admin"])
+    # Create a consistent admin dependency
+    admin_dependency = require_roles(["admin"])
+    return admin_dependency
 
 
 def require_any_scope(allowed_scopes: List[str]):
     """
-    Dependency factory for "any of" scope authorization.
+    Dependency factory for "any of" scope authorization with enhanced parsing.
     
     Args:
         allowed_scopes: List of allowed scopes (user needs at least one)
@@ -394,7 +464,20 @@ def require_any_scope(allowed_scopes: List[str]):
     async def check_any_scope(payload: dict = Depends(get_current_token_payload)) -> dict:
         try:
             token_scopes = payload.get(JWTClaims.SCOPES, [])
-            if not any(scope in token_scopes for scope in allowed_scopes):
+            
+            # Parse scopes if they come as a string
+            if isinstance(token_scopes, str):
+                token_scopes = token_scopes.split()
+            
+            # Check for direct matches first
+            has_scope = any(scope in token_scopes for scope in allowed_scopes)
+            
+            # If no direct match, check implied scopes
+            if not has_scope:
+                implied_scopes = _get_implied_scopes(token_scopes)
+                has_scope = any(scope in implied_scopes for scope in allowed_scopes)
+            
+            if not has_scope:
                 raise InsufficientScopeError(
                     f"Insufficient permissions. Need at least one of: {', '.join(allowed_scopes)}",
                     required_scopes=allowed_scopes,
@@ -411,10 +494,27 @@ def require_any_scope(allowed_scopes: List[str]):
     # Create a simple function for tests to access
     def wrapped_check_any_scope(payload: dict) -> dict:
         token_scopes = payload.get(JWTClaims.SCOPES, [])
-        if not any(scope in token_scopes for scope in allowed_scopes):
-            raise InsufficientScopeError(
-                f"Insufficient permissions. Need at least one of: {', '.join(allowed_scopes)}",
-                required_scopes=allowed_scopes,
+        
+        # Parse scopes if they come as a string
+        if isinstance(token_scopes, str):
+            token_scopes = token_scopes.split()
+        
+        # Check for direct matches first
+        has_scope = any(scope in token_scopes for scope in allowed_scopes)
+        
+        # If no direct match, check implied scopes
+        if not has_scope:
+            implied_scopes = _get_implied_scopes(token_scopes)
+            has_scope = any(scope in implied_scopes for scope in allowed_scopes)
+        
+        if not has_scope:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "error": "insufficient_scope",
+                    "error_description": f"Insufficient permissions. Need at least one of: {', '.join(allowed_scopes)}",
+                    "required_scopes": allowed_scopes,
+                },
             )
         
         return payload
@@ -446,7 +546,7 @@ def require_user_or_service():
 
 async def get_optional_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-    db = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     redis: RedisClient = Depends(get_redis),
 ):
     """
@@ -464,13 +564,6 @@ async def get_optional_current_user(
         return None
     
     try:
-        # Handle async generator properly
-        if hasattr(db, '__anext__'):
-            # db is an async generator, get the actual session
-            db_session = await db.__anext__()
-        else:
-            db_session = db
-            
         token = credentials.credentials
         payload = jwt_service.validate_token(token)
         
@@ -488,7 +581,7 @@ async def get_optional_current_user(
         if not user_id:
             return None
         
-        return await SecurityUtils.get_user_by_id(user_id, db_session)
+        return await SecurityUtils.get_user_by_id(user_id, db)
     
     except Exception:
         # If any error occurs, return None (optional auth)
