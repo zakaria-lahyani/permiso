@@ -1,1 +1,1 @@
-"""Configuration package for Keystone authentication system."""
+"""Configuration package for permiso authentication system."""

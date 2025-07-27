@@ -1,6 +1,6 @@
 # 📦 Installation Guide
 
-This guide will help you set up the Keystone Authentication System for development or production use.
+This guide will help you set up the permiso Authentication System for development or production use.
 
 ## 🔧 Prerequisites
 
@@ -39,7 +39,7 @@ This guide will help you set up the Keystone Authentication System for developme
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd keystone
+   cd permiso
    ```
 
 2. **Set up environment variables**
@@ -63,7 +63,7 @@ This guide will help you set up the Keystone Authentication System for developme
 1. **Clone and navigate to project**
    ```bash
    git clone <repository-url>
-   cd keystone
+   cd permiso
    ```
 
 2. **Install Python dependencies**
@@ -116,7 +116,7 @@ HOST=0.0.0.0
 PORT=8000
 
 # Database
-DATABASE_URL=postgresql+asyncpg://keystone:password@localhost:5432/keystone
+DATABASE_URL=postgresql+asyncpg://permiso:password@localhost:5432/permiso
 DATABASE_POOL_SIZE=20
 DATABASE_MAX_OVERFLOW=0
 
@@ -168,10 +168,10 @@ ALLOWED_HOSTS=["yourdomain.com"]
 #### Using Docker (Recommended)
 ```bash
 docker run -d \
-  --name keystone-postgres \
-  -e POSTGRES_USER=keystone \
+  --name permiso-postgres \
+  -e POSTGRES_USER=permiso \
   -e POSTGRES_PASSWORD=password \
-  -e POSTGRES_DB=keystone \
+  -e POSTGRES_DB=permiso \
   -p 5432:5432 \
   postgres:15-alpine
 ```
@@ -180,9 +180,9 @@ docker run -d \
 1. Install PostgreSQL 15+
 2. Create database and user:
    ```sql
-   CREATE DATABASE keystone;
-   CREATE USER keystone WITH PASSWORD 'password';
-   GRANT ALL PRIVILEGES ON DATABASE keystone TO keystone;
+   CREATE DATABASE permiso;
+   CREATE USER permiso WITH PASSWORD 'password';
+   GRANT ALL PRIVILEGES ON DATABASE permiso TO permiso;
    ```
 
 ### Redis Setup
@@ -190,7 +190,7 @@ docker run -d \
 #### Using Docker (Recommended)
 ```bash
 docker run -d \
-  --name keystone-redis \
+  --name permiso-redis \
   -p 6379:6379 \
   redis:7-alpine
 ```
@@ -213,7 +213,7 @@ Expected response:
 ```json
 {
   "status": "healthy",
-  "service": "keystone-auth",
+  "service": "permiso-auth",
   "version": "1.0.0",
   "environment": "development"
 }
@@ -245,17 +245,17 @@ poetry run python -c "from app.config.database import test_connection; import as
 
 2. **View logs**
    ```bash
-   docker-compose logs -f keystone-app
+   docker-compose logs -f permiso-app
    ```
 
 3. **Execute commands in container**
    ```bash
-   docker-compose exec keystone-app bash
+   docker-compose exec permiso-app bash
    ```
 
 4. **Run tests in container**
    ```bash
-   docker-compose exec keystone-app pytest
+   docker-compose exec permiso-app pytest
    ```
 
 ## 🔧 Development Tools
@@ -314,7 +314,7 @@ kill -9 <PID>
 # Check if PostgreSQL is running
 docker ps | grep postgres
 # Check connection
-psql -h localhost -U keystone -d keystone
+psql -h localhost -U permiso -d permiso
 ```
 
 #### Permission Issues (Linux/Mac)
@@ -346,8 +346,8 @@ After successful installation:
 If you encounter issues:
 
 1. Check the [Troubleshooting Guide](../development/troubleshooting.md)
-2. Search [existing issues](https://github.com/your-org/keystone/issues)
-3. Create a [new issue](https://github.com/your-org/keystone/issues/new) with:
+2. Search [existing issues](https://github.com/your-org/permiso/issues)
+3. Create a [new issue](https://github.com/your-org/permiso/issues/new) with:
    - Your operating system
    - Python version
    - Error messages

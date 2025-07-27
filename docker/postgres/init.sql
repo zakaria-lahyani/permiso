@@ -1,33 +1,33 @@
--- PostgreSQL initialization script for Keystone Authentication System
+-- PostgreSQL initialization script for permiso Authentication System
 
 -- Create additional databases if needed
-CREATE DATABASE keystone_dev;
-CREATE DATABASE keystone_staging;
+CREATE DATABASE permiso_dev;
+CREATE DATABASE permiso_staging;
 
 -- Create extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- Grant permissions
-GRANT ALL PRIVILEGES ON DATABASE keystone TO keystone;
-GRANT ALL PRIVILEGES ON DATABASE keystone_dev TO keystone;
-GRANT ALL PRIVILEGES ON DATABASE keystone_staging TO keystone;
+GRANT ALL PRIVILEGES ON DATABASE permiso TO permiso;
+GRANT ALL PRIVILEGES ON DATABASE permiso_dev TO permiso;
+GRANT ALL PRIVILEGES ON DATABASE permiso_staging TO permiso;
 
 -- Create schemas
-\c keystone;
+\c permiso;
 CREATE SCHEMA IF NOT EXISTS auth;
 CREATE SCHEMA IF NOT EXISTS audit;
 
-\c keystone_dev;
+\c permiso_dev;
 CREATE SCHEMA IF NOT EXISTS auth;
 CREATE SCHEMA IF NOT EXISTS audit;
 
-\c keystone_staging;
+\c permiso_staging;
 CREATE SCHEMA IF NOT EXISTS auth;
 CREATE SCHEMA IF NOT EXISTS audit;
 
 -- Switch back to main database
-\c keystone;
+\c permiso;
 
 -- Create audit table for tracking changes
 CREATE TABLE IF NOT EXISTS audit.audit_log (

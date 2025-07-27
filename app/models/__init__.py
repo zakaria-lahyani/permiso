@@ -1,4 +1,4 @@
-"""Database models package for Keystone authentication system."""
+"""Database models package for permiso authentication system."""
 
 # Import base first
 from app.models.base import Base, BaseModel

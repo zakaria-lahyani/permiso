@@ -1,5 +1,5 @@
 @echo off
-REM Test runner script for Keystone Authentication System (Windows)
+REM Test runner script for permiso Authentication System (Windows)
 
 setlocal enabledelayedexpansion
 
@@ -57,17 +57,17 @@ if "%test_type%"=="" set test_type=all
 call :print_status "Running %test_type% tests..."
 
 if "%test_type%"=="unit" (
-    docker-compose exec keystone-dev poetry run pytest tests/test_app/ -m unit -v --tb=short
+    docker-compose exec permiso-dev poetry run pytest tests/test_app/ -m unit -v --tb=short
 ) else if "%test_type%"=="integration" (
-    docker-compose exec keystone-dev poetry run pytest tests/integration/ -m integration -v --tb=short
+    docker-compose exec permiso-dev poetry run pytest tests/integration/ -m integration -v --tb=short
 ) else if "%test_type%"=="security" (
-    docker-compose exec keystone-dev poetry run pytest tests/security/ -m security -v --tb=short
+    docker-compose exec permiso-dev poetry run pytest tests/security/ -m security -v --tb=short
 ) else if "%test_type%"=="fast" (
-    docker-compose exec keystone-dev poetry run pytest -m "not slow" -v --tb=short
+    docker-compose exec permiso-dev poetry run pytest -m "not slow" -v --tb=short
 ) else if "%test_type%"=="coverage" (
-    docker-compose exec keystone-dev poetry run pytest --cov=app --cov-report=html --cov-report=term --cov-report=xml --cov-fail-under=80
+    docker-compose exec permiso-dev poetry run pytest --cov=app --cov-report=html --cov-report=term --cov-report=xml --cov-fail-under=80
 ) else if "%test_type%"=="all" (
-    docker-compose exec keystone-dev poetry run pytest --cov=app --cov-report=html --cov-report=term -v
+    docker-compose exec permiso-dev poetry run pytest --cov=app --cov-report=html --cov-report=term -v
 ) else (
     call :print_error "Unknown test type: %test_type%"
     echo Available options: unit, integration, security, fast, coverage, all
@@ -78,7 +78,7 @@ goto :eof
 REM Function to run tests in dedicated test container
 :run_tests_container
 call :print_status "Running tests in dedicated test container..."
-docker-compose --profile test up --build keystone-test
+docker-compose --profile test up --build permiso-test
 goto :eof
 
 REM Function to setup development environment
@@ -92,14 +92,14 @@ REM Wait for services
 call :wait_for_services
 
 REM Build and start dev container
-docker-compose up -d keystone-dev
+docker-compose up -d permiso-dev
 
 REM Run database migrations
 call :print_status "Running database migrations..."
-docker-compose exec keystone-dev poetry run alembic upgrade head
+docker-compose exec permiso-dev poetry run alembic upgrade head
 
 call :print_success "Development environment is ready!"
-call :print_status "You can now run: docker-compose exec keystone-dev bash"
+call :print_status "You can now run: docker-compose exec permiso-dev bash"
 goto :eof
 
 REM Function to cleanup
@@ -123,7 +123,7 @@ goto :eof
 REM Function to test imports
 :test_imports
 call :print_status "Testing imports..."
-docker-compose exec keystone-dev poetry run python tests/test_import.py
+docker-compose exec permiso-dev poetry run python tests/test_import.py
 goto :eof
 
 REM Function to run specific test file
@@ -135,7 +135,7 @@ if "%test_file%"=="" (
 )
 
 call :print_status "Running test file: %test_file%"
-docker-compose exec keystone-dev poetry run pytest "%test_file%" -v
+docker-compose exec permiso-dev poetry run pytest "%test_file%" -v
 goto :eof
 
 REM Main script logic
@@ -159,7 +159,7 @@ if "%command%"=="setup" (
 ) else if "%command%"=="cleanup" (
     call :cleanup
 ) else (
-    echo Keystone Test Runner
+    echo permiso Test Runner
     echo.
     echo Usage: %0 ^<command^> [options]
     echo.
@@ -178,7 +178,7 @@ if "%command%"=="setup" (
     echo   %0 test unit
     echo   %0 test coverage
     echo   %0 file tests/test_app/test_models/test_user.py
-    echo   %0 logs keystone-dev
+    echo   %0 logs permiso-dev
 )
 
 endlocal

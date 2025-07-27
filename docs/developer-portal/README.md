@@ -1,10 +1,10 @@
-# Keystone Authentication System - Developer Portal
+# permiso Authentication System - Developer Portal
 
-Welcome to the Keystone Authentication System Developer Portal! This comprehensive resource provides everything you need to integrate with and extend the Keystone authentication platform.
+Welcome to the permiso Authentication System Developer Portal! This comprehensive resource provides everything you need to integrate with and extend the permiso authentication platform.
 
 ## 🚀 Quick Start
 
-Get up and running with Keystone in minutes:
+Get up and running with permiso in minutes:
 
 1. **[Installation Guide](../getting-started/installation.md)** - Set up your development environment
 2. **[Quick Start Tutorial](../getting-started/quick-start.md)** - Build your first integration
@@ -173,12 +173,12 @@ Get up and running with Keystone in minutes:
 
 ## 🚀 Ready to Get Started?
 
-1. **New to Keystone?** Start with our [Quick Start Guide](../getting-started/quick-start.md)
+1. **New to permiso?** Start with our [Quick Start Guide](../getting-started/quick-start.md)
 2. **Integrating an existing app?** Check out our [Integration Guides](integrations/)
 3. **Need help?** Visit our [Support Center](support/) or [Community Forums](community/forums.md)
 4. **Want to contribute?** Read our [Contributing Guide](contributing/contributing-guide.md)
 
-Welcome to the Keystone community! We're excited to see what you'll build with our authentication platform.
+Welcome to the permiso community! We're excited to see what you'll build with our authentication platform.
 
 ---
 

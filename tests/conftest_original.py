@@ -1,4 +1,4 @@
-"""Pytest configuration and fixtures for Keystone authentication system tests."""
+"""Pytest configuration and fixtures for permiso authentication system tests."""
 
 import asyncio
 import pytest
@@ -31,7 +31,7 @@ def test_settings() -> Settings:
     return Settings(
         ENVIRONMENT="testing",
         DEBUG=True,
-        DATABASE_URL="postgresql+asyncpg://test:test@localhost:5432/test_keystone",
+        DATABASE_URL="postgresql+asyncpg://test:test@localhost:5432/test_permiso",
         REDIS_URL="redis://localhost:6379/1",
         JWT_SECRET_KEY="test-secret-key-for-testing-only",
         ACCESS_TOKEN_EXPIRE_MINUTES=15,

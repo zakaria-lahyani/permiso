@@ -1,6 +1,6 @@
 # API Explorer
 
-The Keystone API Explorer provides an interactive interface for testing and exploring all available API endpoints. This tool helps developers understand the API structure, test requests, and see real-time responses.
+The permiso API Explorer provides an interactive interface for testing and exploring all available API endpoints. This tool helps developers understand the API structure, test requests, and see real-time responses.
 
 ## Overview
 
@@ -146,7 +146,7 @@ Generate code examples in multiple languages:
 sequenceDiagram
     participant User as User
     participant Explorer as API Explorer
-    participant API as Keystone API
+    participant API as permiso API
 
     User->>Explorer: Enter credentials
     Explorer->>API: POST /api/v1/auth/token
@@ -353,4 +353,4 @@ Use for QA testing:
 - Test with different user permissions
 - Validate rate limiting behavior
 
-The API Explorer is an essential tool for understanding and integrating with the Keystone Authentication System. Use it to explore the API, test your integrations, and ensure your applications work correctly with the authentication platform.
+The API Explorer is an essential tool for understanding and integrating with the permiso Authentication System. Use it to explore the API, test your integrations, and ensure your applications work correctly with the authentication platform.

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Test runner script for Keystone Authentication System
+# Test runner script for permiso Authentication System
 
 set -e
 
@@ -66,22 +66,22 @@ run_tests() {
     
     case $test_type in
         "unit")
-            docker-compose exec keystone-dev poetry run pytest tests/test_app/ -m unit -v --tb=short
+            docker-compose exec permiso-dev poetry run pytest tests/test_app/ -m unit -v --tb=short
             ;;
         "integration")
-            docker-compose exec keystone-dev poetry run pytest tests/integration/ -m integration -v --tb=short
+            docker-compose exec permiso-dev poetry run pytest tests/integration/ -m integration -v --tb=short
             ;;
         "security")
-            docker-compose exec keystone-dev poetry run pytest tests/security/ -m security -v --tb=short
+            docker-compose exec permiso-dev poetry run pytest tests/security/ -m security -v --tb=short
             ;;
         "fast")
-            docker-compose exec keystone-dev poetry run pytest -m "not slow" -v --tb=short
+            docker-compose exec permiso-dev poetry run pytest -m "not slow" -v --tb=short
             ;;
         "coverage")
-            docker-compose exec keystone-dev poetry run pytest --cov=app --cov-report=html --cov-report=term --cov-report=xml --cov-fail-under=80
+            docker-compose exec permiso-dev poetry run pytest --cov=app --cov-report=html --cov-report=term --cov-report=xml --cov-fail-under=80
             ;;
         "all")
-            docker-compose exec keystone-dev poetry run pytest --cov=app --cov-report=html --cov-report=term -v
+            docker-compose exec permiso-dev poetry run pytest --cov=app --cov-report=html --cov-report=term -v
             ;;
         *)
             print_error "Unknown test type: $test_type"
@@ -94,7 +94,7 @@ run_tests() {
 # Function to run tests in dedicated test container
 run_tests_container() {
     print_status "Running tests in dedicated test container..."
-    docker-compose --profile test up --build keystone-test
+    docker-compose --profile test up --build permiso-test
 }
 
 # Function to setup development environment
@@ -108,14 +108,14 @@ setup_dev() {
     wait_for_services
     
     # Build and start dev container
-    docker-compose up -d keystone-dev
+    docker-compose up -d permiso-dev
     
     # Run database migrations
     print_status "Running database migrations..."
-    docker-compose exec keystone-dev poetry run alembic upgrade head
+    docker-compose exec permiso-dev poetry run alembic upgrade head
     
     print_success "Development environment is ready!"
-    print_status "You can now run: docker-compose exec keystone-dev bash"
+    print_status "You can now run: docker-compose exec permiso-dev bash"
 }
 
 # Function to cleanup
@@ -139,7 +139,7 @@ show_logs() {
 # Function to run import tests
 test_imports() {
     print_status "Testing imports..."
-    docker-compose exec keystone-dev poetry run python tests/test_import.py
+    docker-compose exec permiso-dev poetry run python tests/test_import.py
 }
 
 # Function to run specific test file
@@ -151,7 +151,7 @@ run_test_file() {
     fi
     
     print_status "Running test file: $test_file"
-    docker-compose exec keystone-dev poetry run pytest "$test_file" -v
+    docker-compose exec permiso-dev poetry run pytest "$test_file" -v
 }
 
 # Main script logic
@@ -181,7 +181,7 @@ main() {
             cleanup
             ;;
         "help"|*)
-            echo "Keystone Test Runner"
+            echo "permiso Test Runner"
             echo ""
             echo "Usage: $0 <command> [options]"
             echo ""
@@ -200,7 +200,7 @@ main() {
             echo "  $0 test unit"
             echo "  $0 test coverage"
             echo "  $0 file tests/test_app/test_models/test_user.py"
-            echo "  $0 logs keystone-dev"
+            echo "  $0 logs permiso-dev"
             ;;
     esac
 }

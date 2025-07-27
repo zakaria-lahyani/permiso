@@ -1,4 +1,4 @@
-# Application Dockerfile for Keystone Authentication System
+# Application Dockerfile for permiso Authentication System
 FROM python:3.11-slim
 
 # Set environment variables

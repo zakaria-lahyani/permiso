@@ -1,10 +1,10 @@
 # 🔒 Security Guide
 
-This comprehensive security guide covers all security aspects of the Keystone Authentication System, including best practices, threat mitigation, and security configuration.
+This comprehensive security guide covers all security aspects of the permiso Authentication System, including best practices, threat mitigation, and security configuration.
 
 ## 🎯 Security Overview
 
-Keystone implements defense-in-depth security with multiple layers of protection:
+permiso implements defense-in-depth security with multiple layers of protection:
 
 - **Authentication Security**: Strong password policies, account lockout, MFA support
 - **Authorization Security**: Role-based access control, scope-based permissions
@@ -33,7 +33,7 @@ PASSWORD_MAX_AGE_DAYS=90
 
 #### Password Hashing
 
-Keystone uses **Argon2id** for password hashing:
+permiso uses **Argon2id** for password hashing:
 
 ```python
 # Argon2 configuration
@@ -75,7 +75,7 @@ LOCKOUT_SCHEDULE = {
 ```python
 # MFA configuration
 MFA_ENABLED = True
-MFA_ISSUER = "Keystone Auth"
+MFA_ISSUER = "permiso Auth"
 MFA_ALGORITHM = "SHA1"
 MFA_DIGITS = 6
 MFA_PERIOD = 30  # seconds
@@ -100,7 +100,7 @@ BACKUP_CODES_CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 ```bash
 # Production JWT configuration
 JWT_ALGORITHM=RS256  # Use RSA signatures for distributed systems
-JWT_ISSUER=keystone-auth
+JWT_ISSUER=permiso-auth
 JWT_AUDIENCE=["api-server", "web-app"]
 
 # Token lifetimes (keep short)
@@ -332,7 +332,7 @@ server {
     add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'" always;
     
     location / {
-        proxy_pass http://keystone-backend;
+        proxy_pass http://permiso-backend;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -869,11 +869,20 @@ class TestSecurityVulnerabilities:
 
 ### Recommended Reading
 
+#### External Resources
 - [OWASP Authentication Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html)
 - [JWT Security Best Practices](https://auth0.com/blog/a-look-at-the-latest-draft-for-jwt-bcp/)
 - [FastAPI Security Documentation](https://fastapi.tiangolo.com/tutorial/security/)
 - [Python Security Guidelines](https://python.org/dev/security/)
 
+#### permiso Documentation
+- [System Architecture](../architecture/authentication-system.md) - Complete system architecture overview
+- [FastAPI Dependency Patterns](../development/fastapi-dependency-patterns.md) - Security-focused dependency injection
+- [Code Examples & Best Practices](../development/code-examples-best-practices.md) - Secure implementation examples
+- [Service-to-Service Authentication](../developer-portal/integrations/service-to-service.md) - Secure service integration
+- [Web Application Integration](../developer-portal/integrations/web-applications.md) - Frontend security patterns
+- [Testing Guide](../development/testing.md) - Security testing strategies
+
 ---
 
-**Security is everyone's responsibility! 🔒 Build secure, trustworthy authentication systems with Keystone.**
+**Security is everyone's responsibility! 🔒 Build secure, trustworthy authentication systems with permiso.**

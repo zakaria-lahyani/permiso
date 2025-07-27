@@ -1,4 +1,4 @@
-"""Test runner script for Keystone authentication system."""
+"""Test runner script for permiso authentication system."""
 
 import asyncio
 import sys

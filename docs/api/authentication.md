@@ -244,7 +244,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
   "token_type": "access",
   "exp": 1640995200,
   "iat": 1640994300,
-  "iss": "keystone-auth",
+  "iss": "permiso-auth",
   "aud": ["api-server"]
 }
 ```
@@ -295,7 +295,7 @@ curl -X POST "http://localhost:8000/api/v1/auth/logout" \
 
 ```json
 {
-  "iss": "keystone-auth",
+  "iss": "permiso-auth",
   "aud": ["api-server"],
   "sub": "123e4567-e89b-12d3-a456-426614174000",
   "exp": 1640995200,
@@ -315,8 +315,8 @@ curl -X POST "http://localhost:8000/api/v1/auth/logout" \
 
 ```json
 {
-  "iss": "keystone-auth",
-  "aud": ["keystone-auth"],
+  "iss": "permiso-auth",
+  "aud": ["permiso-auth"],
   "sub": "123e4567-e89b-12d3-a456-426614174000",
   "exp": 1643586300,
   "iat": 1640994300,
@@ -331,7 +331,7 @@ curl -X POST "http://localhost:8000/api/v1/auth/logout" \
 
 ```json
 {
-  "iss": "keystone-auth",
+  "iss": "permiso-auth",
   "aud": ["internal-api"],
   "sub": "my-service",
   "exp": 1640995200,
@@ -455,7 +455,7 @@ import httpx
 import asyncio
 from datetime import datetime, timedelta
 
-class KeystoneClient:
+class permisoClient:
     def __init__(self, base_url: str, client_id: str, client_secret: str):
         self.base_url = base_url
         self.client_id = client_id
@@ -503,7 +503,7 @@ class KeystoneClient:
 
 # Usage
 async def main():
-    client = KeystoneClient(
+    client = permisoClient(
         base_url="http://localhost:8000",
         client_id="my-service",
         client_secret="service-secret"
@@ -526,7 +526,7 @@ asyncio.run(main())
 {
   "error": "error_code",
   "error_description": "Human readable error description",
-  "error_uri": "https://docs.keystone.com/errors/error_code",
+  "error_uri": "https://docs.permiso.com/errors/error_code",
   "details": {
     "field": "Additional error details"
   }
@@ -549,11 +549,22 @@ asyncio.run(main())
 
 ## 📚 Related Documentation
 
+### API Reference
 - [User Management API](users.md) - User CRUD operations
-- [Admin API](admin.md) - Administrative functions
-- [Security Guide](../security/security-guide.md) - Security best practices
+- [Roles & Permissions API](roles.md) - Role-based access control
+- [Session Management API](sessions.md) - Session lifecycle management
+
+### Integration Guides
+- [Service-to-Service Authentication](../developer-portal/integrations/service-to-service.md) - OAuth2 Client Credentials flow
+- [Web Application Integration](../developer-portal/integrations/web-applications.md) - Frontend integration patterns
+- [FastAPI Dependency Patterns](../development/fastapi-dependency-patterns.md) - Dependency injection patterns
+
+### Security & Configuration
+- [Security Guide](../security/security-guide.md) - Comprehensive security best practices
+- [Code Examples & Best Practices](../development/code-examples-best-practices.md) - Practical implementation examples
 - [Configuration Guide](../getting-started/configuration.md) - JWT and security settings
+- [System Architecture](../architecture/authentication-system.md) - Complete system architecture overview
 
 ---
 
-**Ready to authenticate! 🔐 Build secure applications with Keystone's robust authentication system.**
+**Ready to authenticate! 🔐 Build secure applications with permiso's robust authentication system.**

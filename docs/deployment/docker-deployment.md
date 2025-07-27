@@ -1,6 +1,6 @@
 # Docker Deployment Guide
 
-This guide provides instructions for deploying the Keystone Authentication System using Docker and Docker Compose.
+This guide provides instructions for deploying the permiso Authentication System using Docker and Docker Compose.
 
 ## Prerequisites
 
@@ -15,8 +15,8 @@ This guide provides instructions for deploying the Keystone Authentication Syste
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/keystone-auth.git
-cd keystone-auth
+git clone https://github.com/your-org/permiso-auth.git
+cd permiso-auth
 
 # Copy environment template
 cp .env.example .env
@@ -71,7 +71,7 @@ services:
     environment:
       - DEBUG=true
       - ENVIRONMENT=development
-      - DATABASE_URL=postgresql+asyncpg://keystone:password@db:5432/keystone_dev
+      - DATABASE_URL=postgresql+asyncpg://permiso:password@db:5432/permiso_dev
       - REDIS_URL=redis://redis:6379/0
     volumes:
       - .:/app
@@ -81,20 +81,20 @@ services:
       - redis
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     networks:
-      - keystone-network
+      - permiso-network
 
   db:
     image: postgres:15-alpine
     environment:
-      - POSTGRES_DB=keystone_dev
-      - POSTGRES_USER=keystone
+      - POSTGRES_DB=permiso_dev
+      - POSTGRES_USER=permiso
       - POSTGRES_PASSWORD=password
     volumes:
       - postgres_dev_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     networks:
-      - keystone-network
+      - permiso-network
 
   redis:
     image: redis:7-alpine
@@ -103,7 +103,7 @@ services:
     volumes:
       - redis_dev_data:/data
     networks:
-      - keystone-network
+      - permiso-network
 
   # Optional: Database admin interface
   pgadmin:
@@ -116,14 +116,14 @@ services:
     depends_on:
       - db
     networks:
-      - keystone-network
+      - permiso-network
 
 volumes:
   postgres_dev_data:
   redis_dev_data:
 
 networks:
-  keystone-network:
+  permiso-network:
     driver: bridge
 ```
 
@@ -158,7 +158,7 @@ services:
       retries: 3
       start_period: 40s
     networks:
-      - keystone-network
+      - permiso-network
 
   db:
     image: postgres:15-alpine
@@ -176,7 +176,7 @@ services:
       timeout: 10s
       retries: 3
     networks:
-      - keystone-network
+      - permiso-network
 
   redis:
     image: redis:7-alpine
@@ -190,7 +190,7 @@ services:
       timeout: 10s
       retries: 3
     networks:
-      - keystone-network
+      - permiso-network
 
   nginx:
     image: nginx:alpine
@@ -205,14 +205,14 @@ services:
       - app
     restart: unless-stopped
     networks:
-      - keystone-network
+      - permiso-network
 
 volumes:
   postgres_prod_data:
   redis_prod_data:
 
 networks:
-  keystone-network:
+  permiso-network:
     driver: bridge
 ```
 
@@ -286,8 +286,8 @@ COPY . .
 # Create non-root user
 RUN useradd --create-home --shell /bin/bash app && \
     chown -R app:app /app && \
-    mkdir -p /var/log/keystone && \
-    chown app:app /var/log/keystone
+    mkdir -p /var/log/permiso && \
+    chown app:app /var/log/permiso
 
 USER app
 
@@ -308,7 +308,7 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--worker
 
 ```bash
 # Application
-APP_NAME=Keystone Authentication API
+APP_NAME=permiso Authentication API
 VERSION=1.0.0
 DEBUG=true
 ENVIRONMENT=development
@@ -318,7 +318,7 @@ HOST=0.0.0.0
 PORT=8000
 
 # Database
-DATABASE_URL=postgresql+asyncpg://keystone:password@db:5432/keystone_dev
+DATABASE_URL=postgresql+asyncpg://permiso:password@db:5432/permiso_dev
 DATABASE_POOL_SIZE=5
 DATABASE_MAX_OVERFLOW=0
 DATABASE_ECHO=true
@@ -331,7 +331,7 @@ REDIS_DECODE_RESPONSES=true
 # JWT Configuration
 JWT_SECRET_KEY=dev-secret-key-change-in-production
 JWT_ALGORITHM=HS256
-JWT_ISSUER=keystone-auth-dev
+JWT_ISSUER=permiso-auth-dev
 ACCESS_TOKEN_EXPIRE_MINUTES=60
 REFRESH_TOKEN_EXPIRE_DAYS=7
 SERVICE_TOKEN_EXPIRE_MINUTES=60
@@ -372,7 +372,7 @@ OPENAPI_URL=/openapi.json
 
 ```bash
 # Application
-APP_NAME=Keystone Authentication API
+APP_NAME=permiso Authentication API
 VERSION=1.0.0
 DEBUG=false
 ENVIRONMENT=production
@@ -382,10 +382,10 @@ HOST=0.0.0.0
 PORT=8000
 
 # Database
-POSTGRES_DB=keystone_prod
-POSTGRES_USER=keystone
+POSTGRES_DB=permiso_prod
+POSTGRES_USER=permiso
 POSTGRES_PASSWORD=your-secure-db-password
-DATABASE_URL=postgresql+asyncpg://keystone:your-secure-db-password@db:5432/keystone_prod
+DATABASE_URL=postgresql+asyncpg://permiso:your-secure-db-password@db:5432/permiso_prod
 DATABASE_POOL_SIZE=20
 DATABASE_MAX_OVERFLOW=10
 DATABASE_ECHO=false
@@ -398,7 +398,7 @@ REDIS_DECODE_RESPONSES=true
 # JWT Configuration
 JWT_SECRET_KEY=your-super-secure-jwt-secret-key
 JWT_ALGORITHM=HS256
-JWT_ISSUER=keystone-auth-prod
+JWT_ISSUER=permiso-auth-prod
 ACCESS_TOKEN_EXPIRE_MINUTES=15
 REFRESH_TOKEN_EXPIRE_DAYS=30
 SERVICE_TOKEN_EXPIRE_MINUTES=15
@@ -467,13 +467,13 @@ docker-compose exec app alembic upgrade head
 docker-compose exec app alembic revision --autogenerate -m "description"
 
 # Database backup
-docker-compose exec db pg_dump -U keystone keystone_dev > backup.sql
+docker-compose exec db pg_dump -U permiso permiso_dev > backup.sql
 
 # Database restore
-docker-compose exec -T db psql -U keystone keystone_dev < backup.sql
+docker-compose exec -T db psql -U permiso permiso_dev < backup.sql
 
 # Access database shell
-docker-compose exec db psql -U keystone keystone_dev
+docker-compose exec db psql -U permiso permiso_dev
 ```
 
 ### Redis Operations
@@ -526,7 +526,7 @@ services:
       - '--web.console.libraries=/etc/prometheus/console_libraries'
       - '--web.console.templates=/etc/prometheus/consoles'
     networks:
-      - keystone-network
+      - permiso-network
 
   grafana:
     image: grafana/grafana:latest
@@ -539,13 +539,13 @@ services:
       - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
       - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
     networks:
-      - keystone-network
+      - permiso-network
 
 volumes:
   grafana_data:
 
 networks:
-  keystone-network:
+  permiso-network:
     external: true
 ```
 
@@ -576,7 +576,7 @@ mkdir -p $BACKUP_DIR
 
 # Database backup
 echo "Creating database backup..."
-docker-compose exec -T db pg_dump -U keystone keystone_prod > "$BACKUP_DIR/db_backup_$TIMESTAMP.sql"
+docker-compose exec -T db pg_dump -U permiso permiso_prod > "$BACKUP_DIR/db_backup_$TIMESTAMP.sql"
 
 # Redis backup
 echo "Creating Redis backup..."
@@ -602,7 +602,7 @@ docker-compose down
 # Restore database
 docker-compose up -d db
 sleep 10
-docker-compose exec -T db psql -U keystone keystone_prod < backups/db_backup_TIMESTAMP.sql
+docker-compose exec -T db psql -U permiso permiso_prod < backups/db_backup_TIMESTAMP.sql
 
 # Restore Redis
 docker cp backups/redis_backup_TIMESTAMP.rdb $(docker-compose ps -q redis):/data/dump.rdb
@@ -681,7 +681,7 @@ docker-compose exec app df -h
 
 # View network configuration
 docker network ls
-docker network inspect keystone_keystone-network
+docker network inspect permiso_permiso-network
 ```
 
 ## Security Considerations
@@ -702,7 +702,7 @@ docker network inspect keystone_keystone-network
 3. **Security Scanning**
    ```bash
    # Scan images for vulnerabilities
-   docker scan keystone:latest
+   docker scan permiso:latest
    ```
 
 ### Network Security
@@ -710,7 +710,7 @@ docker network inspect keystone_keystone-network
 ```yaml
 # Isolate services
 networks:
-  keystone-network:
+  permiso-network:
     driver: bridge
     internal: true  # No external access
   

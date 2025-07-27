@@ -1,10 +1,10 @@
 # 🧪 Testing Guide
 
-This comprehensive testing guide covers all aspects of testing the Keystone Authentication System, from unit tests to security testing and performance validation.
+This comprehensive testing guide covers all aspects of testing the permiso Authentication System, from unit tests to security testing and performance validation.
 
 ## 📋 Testing Overview
 
-Keystone uses a multi-layered testing strategy:
+permiso uses a multi-layered testing strategy:
 
 - **Unit Tests**: Test individual components in isolation
 - **Integration Tests**: Test component interactions and database operations
@@ -105,7 +105,7 @@ pytest --lf
 export ENVIRONMENT=testing
 
 # Run with specific database
-export DATABASE_URL=postgresql+asyncpg://test:test@localhost:5432/keystone_test
+export DATABASE_URL=postgresql+asyncpg://test:test@localhost:5432/permiso_test
 
 # Run with test Redis
 export REDIS_URL=redis://localhost:6379/1
@@ -619,10 +619,19 @@ jobs:
 
 ### Further Reading
 
+#### External Resources
 - [pytest Documentation](https://docs.pytest.org/)
 - [FastAPI Testing](https://fastapi.tiangolo.com/tutorial/testing/)
 - [SQLAlchemy Testing](https://docs.sqlalchemy.org/en/14/orm/session_transaction.html#joining-a-session-into-an-external-transaction-such-as-for-test-suites)
 - [Security Testing Guide](https://owasp.org/www-project-web-security-testing-guide/)
+
+#### permiso Documentation
+- [Code Examples & Best Practices](code-examples-best-practices.md) - Testing examples and patterns
+- [FastAPI Dependency Patterns](fastapi-dependency-patterns.md) - Testing dependency injection
+- [Security Guide](../security/security-guide.md) - Security testing strategies
+- [System Architecture](../architecture/authentication-system.md) - Understanding system components for testing
+- [Service-to-Service Authentication](../developer-portal/integrations/service-to-service.md) - Testing service authentication
+- [Web Application Integration](../developer-portal/integrations/web-applications.md) - Testing web integrations
 
 ---
 

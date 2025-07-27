@@ -1,1 +1,1 @@
-"""Test package for Keystone authentication system."""
+"""Test package for permiso authentication system."""

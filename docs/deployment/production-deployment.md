@@ -1,6 +1,6 @@
 # Production Deployment Guide
 
-This guide provides comprehensive instructions for deploying the Keystone Authentication System in a production environment.
+This guide provides comprehensive instructions for deploying the permiso Authentication System in a production environment.
 
 ## Prerequisites
 
@@ -21,7 +21,7 @@ Create a `.env` file with production settings:
 
 ```bash
 # Application
-APP_NAME=Keystone Authentication API
+APP_NAME=permiso Authentication API
 VERSION=1.0.0
 DEBUG=false
 ENVIRONMENT=production
@@ -31,7 +31,7 @@ HOST=0.0.0.0
 PORT=8000
 
 # Database
-DATABASE_URL=postgresql+asyncpg://keystone:secure_password@db:5432/keystone_prod
+DATABASE_URL=postgresql+asyncpg://permiso:secure_password@db:5432/permiso_prod
 DATABASE_POOL_SIZE=20
 DATABASE_MAX_OVERFLOW=10
 DATABASE_ECHO=false
@@ -44,7 +44,7 @@ REDIS_DECODE_RESPONSES=true
 # JWT Configuration
 JWT_SECRET_KEY=your-super-secure-jwt-secret-key-here
 JWT_ALGORITHM=HS256
-JWT_ISSUER=keystone-auth-prod
+JWT_ISSUER=permiso-auth-prod
 ACCESS_TOKEN_EXPIRE_MINUTES=15
 REFRESH_TOKEN_EXPIRE_DAYS=30
 SERVICE_TOKEN_EXPIRE_MINUTES=15
@@ -80,17 +80,17 @@ ALLOWED_HOSTS=yourdomain.com,app.yourdomain.com
 # Logging
 LOG_LEVEL=INFO
 LOG_FORMAT=json
-LOG_FILE=/var/log/keystone/app.log
+LOG_FILE=/var/log/permiso/app.log
 
 # Monitoring
 ENABLE_METRICS=true
 METRICS_PATH=/metrics
 
 # Cache Configuration
-CACHE_TOKEN_PREFIX=keystone:token:
-CACHE_SESSION_PREFIX=keystone:session:
-CACHE_RATE_LIMIT_PREFIX=keystone:rate:
-CACHE_USER_PREFIX=keystone:user:
+CACHE_TOKEN_PREFIX=permiso:token:
+CACHE_SESSION_PREFIX=permiso:session:
+CACHE_RATE_LIMIT_PREFIX=permiso:rate:
+CACHE_USER_PREFIX=permiso:user:
 CACHE_DEFAULT_TTL=3600
 
 # API Configuration
@@ -115,7 +115,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://keystone:${DB_PASSWORD}@db:5432/keystone_prod
+      - DATABASE_URL=postgresql+asyncpg://permiso:${DB_PASSWORD}@db:5432/permiso_prod
       - REDIS_URL=redis://redis:6379/0
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
       - ENVIRONMENT=production
@@ -123,16 +123,16 @@ services:
       - db
       - redis
     volumes:
-      - ./logs:/var/log/keystone
+      - ./logs:/var/log/permiso
     restart: unless-stopped
     networks:
-      - keystone-network
+      - permiso-network
 
   db:
     image: postgres:15-alpine
     environment:
-      - POSTGRES_DB=keystone_prod
-      - POSTGRES_USER=keystone
+      - POSTGRES_DB=permiso_prod
+      - POSTGRES_USER=permiso
       - POSTGRES_PASSWORD=${DB_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -141,7 +141,7 @@ services:
       - "5432:5432"
     restart: unless-stopped
     networks:
-      - keystone-network
+      - permiso-network
 
   redis:
     image: redis:7-alpine
@@ -152,7 +152,7 @@ services:
       - "6379:6379"
     restart: unless-stopped
     networks:
-      - keystone-network
+      - permiso-network
 
   nginx:
     image: nginx:alpine
@@ -167,14 +167,14 @@ services:
       - app
     restart: unless-stopped
     networks:
-      - keystone-network
+      - permiso-network
 
 volumes:
   postgres_data:
   redis_data:
 
 networks:
-  keystone-network:
+  permiso-network:
     driver: bridge
 ```
 
@@ -188,7 +188,7 @@ events {
 }
 
 http {
-    upstream keystone_app {
+    upstream permiso_app {
         server app:8000;
     }
 
@@ -231,7 +231,7 @@ http {
         # API endpoints
         location /api/ {
             limit_req zone=api burst=20 nodelay;
-            proxy_pass http://keystone_app;
+            proxy_pass http://permiso_app;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -241,7 +241,7 @@ http {
         # Authentication endpoints with stricter rate limiting
         location /api/v1/auth/token {
             limit_req zone=login burst=5 nodelay;
-            proxy_pass http://keystone_app;
+            proxy_pass http://permiso_app;
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -250,7 +250,7 @@ http {
 
         # Health check
         location /health {
-            proxy_pass http://keystone_app;
+            proxy_pass http://permiso_app;
             access_log off;
         }
 
@@ -260,7 +260,7 @@ http {
             allow 172.16.0.0/12;
             allow 192.168.0.0/16;
             deny all;
-            proxy_pass http://keystone_app;
+            proxy_pass http://permiso_app;
         }
     }
 }
@@ -289,16 +289,16 @@ Create a backup script `scripts/backup_db.sh`:
 
 BACKUP_DIR="/backups"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-BACKUP_FILE="keystone_backup_${TIMESTAMP}.sql"
+BACKUP_FILE="permiso_backup_${TIMESTAMP}.sql"
 
 # Create backup
-docker-compose -f docker-compose.prod.yml exec -T db pg_dump -U keystone keystone_prod > "${BACKUP_DIR}/${BACKUP_FILE}"
+docker-compose -f docker-compose.prod.yml exec -T db pg_dump -U permiso permiso_prod > "${BACKUP_DIR}/${BACKUP_FILE}"
 
 # Compress backup
 gzip "${BACKUP_DIR}/${BACKUP_FILE}"
 
 # Keep only last 30 days of backups
-find ${BACKUP_DIR} -name "keystone_backup_*.sql.gz" -mtime +30 -delete
+find ${BACKUP_DIR} -name "permiso_backup_*.sql.gz" -mtime +30 -delete
 
 echo "Backup completed: ${BACKUP_FILE}.gz"
 ```
@@ -387,7 +387,7 @@ Set up Prometheus monitoring:
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
     networks:
-      - keystone-network
+      - permiso-network
 
   grafana:
     image: grafana/grafana
@@ -396,7 +396,7 @@ Set up Prometheus monitoring:
     volumes:
       - grafana_data:/var/lib/grafana
     networks:
-      - keystone-network
+      - permiso-network
 ```
 
 ### 2. Log Management
@@ -405,8 +405,8 @@ Configure log rotation:
 
 ```bash
 # Create logrotate configuration
-sudo tee /etc/logrotate.d/keystone << EOF
-/var/log/keystone/*.log {
+sudo tee /etc/logrotate.d/permiso << EOF
+/var/log/permiso/*.log {
     daily
     missingok
     rotate 30
@@ -479,15 +479,15 @@ python scripts/smoke_tests.py
 
 ```bash
 # 1. Identify last known good version
-docker images | grep keystone
+docker images | grep permiso
 
 # 2. Rollback to previous version
 docker-compose -f docker-compose.prod.yml stop app
-docker tag keystone:previous keystone:latest
+docker tag permiso:previous permiso:latest
 docker-compose -f docker-compose.prod.yml up -d app
 
 # 3. Rollback database if needed
-docker-compose -f docker-compose.prod.yml exec -T db psql -U keystone keystone_prod < /backups/last_good_backup.sql
+docker-compose -f docker-compose.prod.yml exec -T db psql -U permiso permiso_prod < /backups/last_good_backup.sql
 ```
 
 ## Performance Optimization
@@ -626,4 +626,4 @@ For ongoing support:
 - Update dependencies monthly
 - Conduct security audits quarterly
 
-This deployment guide ensures a secure, scalable, and maintainable production deployment of the Keystone Authentication System.
+This deployment guide ensures a secure, scalable, and maintainable production deployment of the permiso Authentication System.

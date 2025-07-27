@@ -1,8 +1,8 @@
 [tool.poetry]
-name = "keystone-auth"
+name = "permiso-auth"
 version = "1.0.0"
 description = "Centralized Authentication and Authorization System"
-authors = ["Keystone Team <team@keystone.com>"]
+authors = ["permiso Team <team@permiso.com>"]
 readme = "README.md"
 packages = [{include = "app"}]
 

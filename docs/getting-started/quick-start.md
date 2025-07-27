@@ -1,10 +1,10 @@
 # 🚀 Quick Start Guide
 
-Get up and running with Keystone Authentication System in minutes! This guide assumes you've completed the [installation](installation.md).
+Get up and running with permiso Authentication System in minutes! This guide assumes you've completed the [installation](installation.md).
 
 ## 🎯 Overview
 
-Keystone provides:
+permiso provides:
 - **User Authentication**: Login/logout with JWT tokens
 - **Role-Based Access Control**: Flexible permissions system
 - **Service-to-Service Auth**: Client credentials flow
@@ -32,7 +32,7 @@ Expected response:
 ```json
 {
   "status": "healthy",
-  "service": "keystone-auth",
+  "service": "permiso-auth",
   "version": "1.0.0",
   "environment": "development"
 }
@@ -125,7 +125,7 @@ curl -X POST "http://localhost:8000/api/v1/auth/service-token" \
 
 ### Default Roles
 
-Keystone comes with these default roles:
+permiso comes with these default roles:
 
 | Role | Description | Default Scopes |
 |------|-------------|----------------|
@@ -159,7 +159,7 @@ export ACCESS_TOKEN_EXPIRE_MINUTES=15
 export ENVIRONMENT=production
 export DEBUG=false
 export JWT_SECRET_KEY=super-secure-production-key
-export DATABASE_URL=postgresql+asyncpg://user:pass@prod-db:5432/keystone
+export DATABASE_URL=postgresql+asyncpg://user:pass@prod-db:5432/permiso
 ```
 
 ### Custom Password Policy
@@ -228,7 +228,7 @@ curl http://localhost:8000/metrics
 
 ```bash
 # View application logs
-docker-compose logs -f keystone-app
+docker-compose logs -f permiso-app
 
 # View database logs
 docker-compose logs -f postgres
@@ -275,7 +275,7 @@ import httpx
 async def get_service_token():
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            "http://keystone:8000/api/v1/auth/service-token",
+            "http://permiso:8000/api/v1/auth/service-token",
             data={
                 "client_id": "my-service",
                 "client_secret": "secret",
@@ -318,13 +318,18 @@ docker-compose restart
 
 ## 📚 Next Steps
 
-Now that you have Keystone running:
+Now that you have permiso running:
 
 1. **[Configuration Guide](configuration.md)** - Customize settings for your needs
 2. **[API Documentation](../api/authentication.md)** - Explore all available endpoints
-3. **[Architecture Overview](../architecture/overview.md)** - Understand the system design
+3. **[System Architecture](../architecture/authentication-system.md)** - Complete system architecture overview
 4. **[Security Guide](../security/security-guide.md)** - Learn about security features
-5. **[Testing Guide](../development/testing.md)** - Write tests for your integration
+5. **[Integration Guides](../developer-portal/integrations/)** - Integrate with your applications
+   - [Service-to-Service Authentication](../developer-portal/integrations/service-to-service.md)
+   - [Web Application Integration](../developer-portal/integrations/web-applications.md)
+6. **[FastAPI Dependency Patterns](../development/fastapi-dependency-patterns.md)** - Learn dependency injection patterns
+7. **[Code Examples & Best Practices](../development/code-examples-best-practices.md)** - Practical implementation examples
+8. **[Testing Guide](../development/testing.md)** - Write tests for your integration
 
 ## 🎉 Success!
 
@@ -341,4 +346,4 @@ Ready to integrate with your applications and build secure, scalable systems!
 
 ---
 
-**Need help?** Check the [troubleshooting guide](../development/troubleshooting.md) or [create an issue](https://github.com/your-org/keystone/issues).
+**Need help?** Check the [troubleshooting guide](../development/troubleshooting.md) or [create an issue](https://github.com/your-org/permiso/issues).

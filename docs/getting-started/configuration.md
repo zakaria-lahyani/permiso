@@ -1,10 +1,10 @@
 # ⚙️ Configuration Guide
 
-This guide covers all configuration options for the Keystone Authentication System, from basic setup to advanced production configurations.
+This guide covers all configuration options for the permiso Authentication System, from basic setup to advanced production configurations.
 
 ## 📋 Configuration Overview
 
-Keystone uses a hierarchical configuration system:
+permiso uses a hierarchical configuration system:
 
 1. **Default values** - Built-in sensible defaults
 2. **Environment variables** - Override defaults via `.env` file or system env vars
@@ -16,7 +16,7 @@ Keystone uses a hierarchical configuration system:
 
 ```bash
 # Application Identity
-APP_NAME="Keystone Authentication API"
+APP_NAME="permiso Authentication API"
 VERSION="1.0.0"
 ENVIRONMENT=development  # development, testing, production
 DEBUG=true              # Enable debug mode (disable in production)
@@ -30,15 +30,15 @@ PORT=8000              # Port number
 
 ```bash
 # PostgreSQL Connection
-DATABASE_URL=postgresql+asyncpg://keystone:password@localhost:5432/keystone
+DATABASE_URL=postgresql+asyncpg://permiso:password@localhost:5432/permiso
 DATABASE_POOL_SIZE=20          # Connection pool size
 DATABASE_MAX_OVERFLOW=0        # Max overflow connections
 DATABASE_ECHO=false           # Log SQL queries (debug only)
 
 # Connection Examples
-# Local: postgresql+asyncpg://user:pass@localhost:5432/keystone
-# Docker: postgresql+asyncpg://user:pass@postgres:5432/keystone
-# Cloud: postgresql+asyncpg://user:pass@cloud-host:5432/keystone?sslmode=require
+# Local: postgresql+asyncpg://user:pass@localhost:5432/permiso
+# Docker: postgresql+asyncpg://user:pass@postgres:5432/permiso
+# Cloud: postgresql+asyncpg://user:pass@cloud-host:5432/permiso?sslmode=require
 ```
 
 ### Redis Configuration
@@ -61,7 +61,7 @@ REDIS_DECODE_RESPONSES=true   # Decode responses to strings
 # JWT Configuration
 JWT_SECRET_KEY=your-super-secret-256-bit-key  # CHANGE IN PRODUCTION!
 JWT_ALGORITHM=HS256                           # Signing algorithm
-JWT_ISSUER=keystone-auth                      # Token issuer
+JWT_ISSUER=permiso-auth                      # Token issuer
 
 # Token Lifetimes (in minutes/days)
 ACCESS_TOKEN_EXPIRE_MINUTES=15    # Access token lifetime
@@ -130,10 +130,10 @@ METRICS_PATH=/metrics             # Metrics endpoint path
 
 ```bash
 # Cache Prefixes and TTL
-CACHE_TOKEN_PREFIX=keystone:token:
-CACHE_SESSION_PREFIX=keystone:session:
-CACHE_RATE_LIMIT_PREFIX=keystone:rate:
-CACHE_USER_PREFIX=keystone:user:
+CACHE_TOKEN_PREFIX=permiso:token:
+CACHE_SESSION_PREFIX=permiso:session:
+CACHE_RATE_LIMIT_PREFIX=permiso:rate:
+CACHE_USER_PREFIX=permiso:user:
 CACHE_DEFAULT_TTL=3600           # Default cache TTL in seconds
 ```
 
@@ -172,7 +172,7 @@ RATE_LIMIT_LOGIN=100/minute
 # .env.testing
 ENVIRONMENT=testing
 DEBUG=true
-DATABASE_URL=postgresql+asyncpg://test:test@localhost:5432/keystone_test
+DATABASE_URL=postgresql+asyncpg://test:test@localhost:5432/permiso_test
 REDIS_URL=redis://localhost:6379/1
 JWT_SECRET_KEY=test-secret-key
 ACCESS_TOKEN_EXPIRE_MINUTES=1    # Short expiry for testing
@@ -198,7 +198,7 @@ ALLOWED_ORIGINS=["https://yourdomain.com"]
 ALLOWED_HOSTS=["yourdomain.com"]
 
 # Production database with SSL
-DATABASE_URL=postgresql+asyncpg://user:pass@prod-db:5432/keystone?sslmode=require
+DATABASE_URL=postgresql+asyncpg://user:pass@prod-db:5432/permiso?sslmode=require
 
 # Production Redis with auth
 REDIS_URL=rediss://:password@prod-redis:6380/0
@@ -242,7 +242,7 @@ REDIS_PASSWORD=strong-redis-password
 REDIS_URL=rediss://:password@redis-host:6380/0
 
 # Configure Redis ACL (Redis 6+)
-REDIS_USERNAME=keystone-user
+REDIS_USERNAME=permiso-user
 ```
 
 ## 🌍 Environment-Specific Settings
@@ -253,10 +253,10 @@ REDIS_USERNAME=keystone-user
 # docker-compose.yml
 version: '3.8'
 services:
-  keystone-app:
+  permiso-app:
     environment:
       - ENVIRONMENT=production
-      - DATABASE_URL=postgresql+asyncpg://keystone:${DB_PASSWORD}@postgres:5432/keystone
+      - DATABASE_URL=postgresql+asyncpg://permiso:${DB_PASSWORD}@postgres:5432/permiso
       - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - JWT_SECRET_KEY=${JWT_SECRET_KEY}
 ```
@@ -268,7 +268,7 @@ services:
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: keystone-config
+  name: permiso-config
 data:
   ENVIRONMENT: "production"
   LOG_LEVEL: "INFO"
@@ -277,7 +277,7 @@ data:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: keystone-secrets
+  name: permiso-secrets
 type: Opaque
 stringData:
   JWT_SECRET_KEY: "your-secret-key"
@@ -291,18 +291,18 @@ stringData:
 
 ```bash
 # Using AWS RDS and ElastiCache
-DATABASE_URL=postgresql+asyncpg://user:pass@keystone.cluster-xxx.us-east-1.rds.amazonaws.com:5432/keystone?sslmode=require
-REDIS_URL=rediss://keystone.cache.amazonaws.com:6380/0
+DATABASE_URL=postgresql+asyncpg://user:pass@permiso.cluster-xxx.us-east-1.rds.amazonaws.com:5432/permiso?sslmode=require
+REDIS_URL=rediss://permiso.cache.amazonaws.com:6380/0
 
 # Using AWS Secrets Manager
-JWT_SECRET_KEY=${aws:secretsmanager:keystone-jwt-secret:SecretString:key}
+JWT_SECRET_KEY=${aws:secretsmanager:permiso-jwt-secret:SecretString:key}
 ```
 
 #### Google Cloud Configuration
 
 ```bash
 # Using Cloud SQL and Memorystore
-DATABASE_URL=postgresql+asyncpg://user:pass@/keystone?host=/cloudsql/project:region:instance
+DATABASE_URL=postgresql+asyncpg://user:pass@/permiso?host=/cloudsql/project:region:instance
 REDIS_URL=redis://10.0.0.1:6379/0
 ```
 
@@ -310,7 +310,7 @@ REDIS_URL=redis://10.0.0.1:6379/0
 
 ```bash
 # Using Azure Database and Redis Cache
-DATABASE_URL=postgresql+asyncpg://user@server:pass@server.postgres.database.azure.com:5432/keystone?sslmode=require
+DATABASE_URL=postgresql+asyncpg://user@server:pass@server.postgres.database.azure.com:5432/permiso?sslmode=require
 REDIS_URL=rediss://cache.redis.cache.windows.net:6380/0
 ```
 
@@ -453,13 +453,19 @@ python -c "from app.config.redis import test_connection; import asyncio; asyncio
 
 ## 📚 Next Steps
 
-After configuring Keystone:
+After configuring permiso:
 
 1. **[Quick Start Guide](quick-start.md)** - Test your configuration
 2. **[API Documentation](../api/authentication.md)** - Explore the endpoints
-3. **[Security Guide](../security/security-guide.md)** - Secure your deployment
-4. **[Deployment Guide](../architecture/deployment.md)** - Deploy to production
+3. **[System Architecture](../architecture/authentication-system.md)** - Understand the complete system
+4. **[Security Guide](../security/security-guide.md)** - Secure your deployment
+5. **[Integration Guides](../developer-portal/integrations/)** - Integrate with your applications
+   - [Service-to-Service Authentication](../developer-portal/integrations/service-to-service.md)
+   - [Web Application Integration](../developer-portal/integrations/web-applications.md)
+6. **[FastAPI Dependency Patterns](../development/fastapi-dependency-patterns.md)** - Learn implementation patterns
+7. **[Code Examples & Best Practices](../development/code-examples-best-practices.md)** - Practical examples
+8. **[Deployment Guide](../deployment/production-deployment.md)** - Deploy to production
 
 ---
 
-**Configuration complete! 🎉 Your Keystone system is ready for secure authentication.**
+**Configuration complete! 🎉 Your permiso system is ready for secure authentication.**

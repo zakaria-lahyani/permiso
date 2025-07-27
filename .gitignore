@@ -173,7 +173,7 @@ cython_debug/
 # VSCode
 .vscode/
 
-# Keystone specific
+# permiso specific
 logs/
 *.log
 .DS_Store

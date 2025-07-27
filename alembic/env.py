@@ -1,4 +1,4 @@
-"""Alembic environment configuration for Keystone authentication system."""
+"""Alembic environment configuration for permiso authentication system."""
 
 import asyncio
 from logging.config import fileConfig

@@ -5,7 +5,7 @@ def test_app_import():
     try:
         from app.main import app
         assert app is not None
-        assert app.title == "Keystone Authentication System"
+        assert app.title == "permiso Authentication System"
         print("✅ App import successful!")
         return True
     except ImportError as e:

@@ -21,7 +21,7 @@ class TestSettingsValidation:
             settings = Settings()
             
             # Test default values
-            assert settings.app_name == "Keystone Auth"
+            assert settings.app_name == "permiso Auth"
             assert settings.debug is False
             assert settings.environment == "production"
             assert settings.api_v1_prefix == "/api/v1"

@@ -31,7 +31,7 @@ def test_settings() -> Settings:
     # Use environment variables with container-aware defaults
     database_url = os.getenv(
         "TEST_DATABASE_URL",
-        "postgresql+asyncpg://keystone_test:keystone_test_password@postgres-test:5432/keystone_test"
+        "postgresql+asyncpg://permiso_test:permiso_test_password@postgres-test:5432/permiso_test"
     )
     redis_url = os.getenv(
         "TEST_REDIS_URL",

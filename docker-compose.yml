@@ -2,11 +2,11 @@ services:
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
-    container_name: keystone-postgres
+    container_name: permiso-postgres
     environment:
-      POSTGRES_DB: keystone
-      POSTGRES_USER: keystone
-      POSTGRES_PASSWORD: keystone_password
+      POSTGRES_DB: permiso
+      POSTGRES_USER: permiso
+      POSTGRES_PASSWORD: permiso_password
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
     ports:
       - "5432:5432"
@@ -14,17 +14,17 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U keystone -d keystone"]
+      test: ["CMD-SHELL", "pg_isready -U permiso -d permiso"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - keystone-network
+      - permiso-network
 
   # Redis Cache
   redis:
     image: redis:7-alpine
-    container_name: keystone-redis
+    container_name: permiso-redis
     ports:
       - "6379:6379"
     volumes:
@@ -37,33 +37,33 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - keystone-network
+      - permiso-network
 
   # Test Database (separate from main)
   postgres-test:
     image: postgres:15-alpine
-    container_name: keystone-postgres-test
+    container_name: permiso-postgres-test
     environment:
-      POSTGRES_DB: keystone_test
-      POSTGRES_USER: keystone_test
-      POSTGRES_PASSWORD: keystone_test_password
+      POSTGRES_DB: permiso_test
+      POSTGRES_USER: permiso_test
+      POSTGRES_PASSWORD: permiso_test_password
       POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
     ports:
       - "5433:5432"
     volumes:
       - postgres_test_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U keystone_test -d keystone_test"]
+      test: ["CMD-SHELL", "pg_isready -U permiso_test -d permiso_test"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - keystone-network
+      - permiso-network
 
   # Test Redis (separate from main)
   redis-test:
     image: redis:7-alpine
-    container_name: keystone-redis-test
+    container_name: permiso-redis-test
     ports:
       - "6380:6379"
     volumes:
@@ -75,14 +75,14 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - keystone-network
+      - permiso-network
 
   # Development/Test Runner Container
-  keystone-dev:
+  permiso-dev:
     build:
       context: .
       dockerfile: docker/Dockerfile.dev
-    container_name: keystone-dev
+    container_name: permiso-dev
     volumes:
       # Mount the entire project for live development
       - .:/app
@@ -96,10 +96,10 @@ services:
       DEBUG: "true"
       
       # Database configuration
-      DATABASE_URL: postgresql+asyncpg://keystone:keystone_password@postgres:5432/keystone
+      DATABASE_URL: postgresql+asyncpg://permiso:permiso_password@postgres:5432/permiso
       
       # Test database configuration
-      TEST_DATABASE_URL: postgresql+asyncpg://keystone_test:keystone_test_password@postgres-test:5432/keystone_test
+      TEST_DATABASE_URL: postgresql+asyncpg://permiso_test:permiso_test_password@postgres-test:5432/permiso_test
       
       # Redis configuration
       REDIS_URL: redis://redis:6379/0
@@ -124,17 +124,17 @@ services:
       redis-test:
         condition: service_healthy
     networks:
-      - keystone-network
+      - permiso-network
     # Keep container running for interactive development
     tty: true
     stdin_open: true
 
   # Test Runner Container (for CI/automated testing)
-  keystone-test:
+  permiso-test:
     build:
       context: .
       dockerfile: docker/Dockerfile.test
-    container_name: keystone-test
+    container_name: permiso-test
     volumes:
       - .:/app
       - test_reports:/app/test-reports
@@ -143,9 +143,9 @@ services:
     environment:
       ENVIRONMENT: testing
       DEBUG: "true"
-      DATABASE_URL: postgresql+asyncpg://keystone_test:keystone_test_password@postgres-test:5432/keystone_test
+      DATABASE_URL: postgresql+asyncpg://permiso_test:permiso_test_password@postgres-test:5432/permiso_test
       REDIS_URL: redis://redis-test:6379/1
-      JWT_SECRET_KEY: test-secret-key-for-testing-only
+      JWT_SECRET_KEY: test-secret-key-for-testing-32chars-only
       PYTHONPATH: /app
       PYTHONUNBUFFERED: 1
       PYTHONDONTWRITEBYTECODE: 1
@@ -155,16 +155,16 @@ services:
       redis-test:
         condition: service_healthy
     networks:
-      - keystone-network
+      - permiso-network
     profiles:
       - test
 
   # Application Container (for production-like testing)
-  keystone-app:
+  permiso-app:
     build:
       context: .
       dockerfile: docker/Dockerfile.app
-    container_name: keystone-app
+    container_name: permiso-app
     ports:
       - "8000:8000"
     volumes:
@@ -173,7 +173,7 @@ services:
     environment:
       ENVIRONMENT: development
       DEBUG: "true"
-      DATABASE_URL: postgresql+asyncpg://keystone:keystone_password@postgres:5432/keystone
+      DATABASE_URL: postgresql+asyncpg://permiso:permiso_password@postgres:5432/permiso
       REDIS_URL: redis://redis:6379/0
       JWT_SECRET_KEY: dev-secret-key-change-in-production
       PYTHONPATH: /app
@@ -184,7 +184,7 @@ services:
       redis:
         condition: service_healthy
     networks:
-      - keystone-network
+      - permiso-network
     profiles:
       - app
 
@@ -207,5 +207,5 @@ volumes:
     driver: local
 
 networks:
-  keystone-network:
+  permiso-network:
     driver: bridge

@@ -1,6 +1,6 @@
 # User Management API Reference
 
-This document provides comprehensive API reference for user management endpoints in the Keystone Authentication System.
+This document provides comprehensive API reference for user management endpoints in the permiso Authentication System.
 
 ## Base URL
 

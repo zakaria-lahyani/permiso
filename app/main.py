@@ -1,4 +1,4 @@
-"""Main FastAPI application module for Keystone authentication system."""
+"""Main FastAPI application module for permiso authentication system."""
 
 import json
 from contextlib import asynccontextmanager
@@ -30,7 +30,7 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI application
 app = FastAPI(
-    title="Keystone Authentication System",
+    title="permiso Authentication System",
     description="Centralized authentication and authorization system",
     version="1.0.0",
     docs_url="/docs" if settings.DEBUG else None,
@@ -135,7 +135,7 @@ async def health_check():
     """Health check endpoint."""
     return {
         "status": "healthy",
-        "service": "keystone-auth",
+        "service": "permiso-auth",
         "version": "1.0.0",
         "environment": settings.ENVIRONMENT,
     }
@@ -146,7 +146,7 @@ async def health_check():
 async def root():
     """Root endpoint with API information."""
     return {
-        "message": "Keystone Authentication System",
+        "message": "permiso Authentication System",
         "version": "1.0.0",
         "docs": "/docs" if settings.DEBUG else "Documentation disabled in production",
         "health": "/health",

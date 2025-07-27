@@ -1,11 +1,11 @@
-"""Custom exceptions for Keystone authentication system."""
+"""Custom exceptions for permiso authentication system."""
 
 from typing import Any, Dict, Optional
 from fastapi import HTTPException
 
 
-class KeystoneException(Exception):
-    """Base exception for Keystone authentication system."""
+class permisoException(Exception):
+    """Base exception for permiso authentication system."""
 
     def __init__(
         self,
@@ -72,7 +72,7 @@ class KeystoneException(Exception):
         return log_data
 
 
-class AuthenticationError(KeystoneException):
+class AuthenticationError(permisoException):
     """Raised when authentication fails."""
 
     def __init__(
@@ -90,7 +90,7 @@ class AuthenticationError(KeystoneException):
         return {"WWW-Authenticate": "Bearer"}
 
 
-class AuthorizationError(KeystoneException):
+class AuthorizationError(permisoException):
     """Raised when authorization fails."""
 
     def __init__(
@@ -104,7 +104,7 @@ class AuthorizationError(KeystoneException):
         super().__init__(message, error_code, details, 403, context, original_error)
 
 
-class ValidationError(KeystoneException):
+class ValidationError(permisoException):
     """Raised when input validation fails."""
 
     def __init__(
@@ -289,7 +289,7 @@ class PasswordPolicyError(ValidationError):
         return result
 
 
-class RateLimitError(KeystoneException):
+class RateLimitError(permisoException):
     """Raised when rate limit is exceeded."""
 
     def __init__(
@@ -405,7 +405,7 @@ class InsufficientScopeError(AuthorizationError):
         return log_data
 
 
-class DatabaseError(KeystoneException):
+class DatabaseError(permisoException):
     """Raised when database operations fail."""
 
     def __init__(
@@ -417,7 +417,7 @@ class DatabaseError(KeystoneException):
         super().__init__(message, error_code, details)
 
 
-class CacheError(KeystoneException):
+class CacheError(permisoException):
     """Raised when cache operations fail."""
 
     def __init__(
@@ -429,7 +429,7 @@ class CacheError(KeystoneException):
         super().__init__(message, error_code, details)
 
 
-class ConfigurationError(KeystoneException):
+class ConfigurationError(permisoException):
     """Raised when configuration is invalid."""
 
     def __init__(
@@ -466,7 +466,7 @@ class DuplicateResourceError(ValidationError):
         return result
 
 
-class ResourceNotFoundError(KeystoneException):
+class ResourceNotFoundError(permisoException):
     """Raised when resource is not found."""
 
     def __init__(
@@ -480,7 +480,7 @@ class ResourceNotFoundError(KeystoneException):
         super().__init__(message, error_code, details)
 
 
-class NotFoundError(KeystoneException):
+class NotFoundError(permisoException):
     """Raised when a resource is not found."""
 
     def __init__(

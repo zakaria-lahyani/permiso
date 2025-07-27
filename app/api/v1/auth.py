@@ -1,4 +1,4 @@
-"""Authentication API endpoints for Keystone authentication system."""
+"""Authentication API endpoints for permiso authentication system."""
 
 from datetime import datetime, timedelta
 from typing import Optional

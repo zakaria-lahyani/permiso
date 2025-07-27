@@ -1,6 +1,6 @@
 # Roles and Permissions API Reference
 
-This document provides comprehensive API reference for role and permission management endpoints in the Keystone Authentication System.
+This document provides comprehensive API reference for role and permission management endpoints in the permiso Authentication System.
 
 ## Base URL
 

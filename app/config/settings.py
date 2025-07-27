@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     """Application settings with environment variable support."""
 
     # Application
-    APP_NAME: str = "Keystone Auth"
+    APP_NAME: str = "permiso Auth"
     VERSION: str = "1.0.0"
     DEBUG: bool = False
     ENVIRONMENT: str = "production"
@@ -52,7 +52,7 @@ class Settings(BaseSettings):
     # JWT Configuration
     JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
-    JWT_ISSUER: str = "keystone-auth"
+    JWT_ISSUER: str = "permiso-auth"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     SERVICE_TOKEN_EXPIRE_MINUTES: int = 15
@@ -98,10 +98,10 @@ class Settings(BaseSettings):
     METRICS_PATH: str = "/metrics"
 
     # Cache Configuration
-    CACHE_TOKEN_PREFIX: str = "keystone:token:"
-    CACHE_SESSION_PREFIX: str = "keystone:session:"
-    CACHE_RATE_LIMIT_PREFIX: str = "keystone:rate:"
-    CACHE_USER_PREFIX: str = "keystone:user:"
+    CACHE_TOKEN_PREFIX: str = "permiso:token:"
+    CACHE_SESSION_PREFIX: str = "permiso:session:"
+    CACHE_RATE_LIMIT_PREFIX: str = "permiso:rate:"
+    CACHE_USER_PREFIX: str = "permiso:user:"
     CACHE_DEFAULT_TTL: int = 3600  # 1 hour
 
     # Default Roles and Scopes

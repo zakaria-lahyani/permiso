@@ -1,1 +1,1 @@
-"""API v1 package for Keystone authentication system."""
+"""API v1 package for permiso authentication system."""

@@ -1,4 +1,4 @@
-"""User management API endpoints for Keystone authentication system."""
+"""User management API endpoints for permiso authentication system."""
 
 import math
 import asyncio

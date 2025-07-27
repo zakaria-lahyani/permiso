@@ -1,4 +1,4 @@
-"""Service client management API endpoints for Keystone authentication system."""
+"""Service client management API endpoints for permiso authentication system."""
 
 import math
 import secrets

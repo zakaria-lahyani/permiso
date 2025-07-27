@@ -1,4 +1,4 @@
-"""Role and permission management API endpoints for Keystone authentication system."""
+"""Role and permission management API endpoints for permiso authentication system."""
 
 import math
 from datetime import datetime

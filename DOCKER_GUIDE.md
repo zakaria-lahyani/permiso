@@ -1,6 +1,6 @@
-# Docker Development Guide - Keystone Authentication System
+# Docker Development Guide - permiso Authentication System
 
-This guide provides comprehensive instructions for using Docker containers to develop and test the Keystone authentication system.
+This guide provides comprehensive instructions for using Docker containers to develop and test the permiso authentication system.
 
 ## Table of Contents
 
@@ -56,7 +56,7 @@ scripts\test.bat test unit
 
 ```bash
 # Enter the development container
-docker-compose exec keystone-dev bash
+docker-compose exec permiso-dev bash
 
 # Inside the container, you can run:
 poetry run pytest
@@ -78,14 +78,14 @@ poetry run alembic upgrade head
          └───────────────────────┼───────────────────────┘
                                  │
          ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-         │  Redis (Test)   │    │  Keystone Dev   │    │ Keystone Test   │
+         │  Redis (Test)   │    │  permiso Dev   │    │ permiso Test   │
          │  Port: 6380     │    │   Container     │    │   Container     │
          └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
 ### Container Details
 
-#### 1. **keystone-dev** (Development Container)
+#### 1. **permiso-dev** (Development Container)
 - **Purpose**: Interactive development and testing
 - **Features**: 
   - Live code reloading via volume mounts
@@ -93,7 +93,7 @@ poetry run alembic upgrade head
   - Interactive shell access
   - Database migration tools
 
-#### 2. **keystone-test** (Test Container)
+#### 2. **permiso-test** (Test Container)
 - **Purpose**: Automated testing and CI/CD
 - **Features**:
   - Isolated test environment
@@ -101,7 +101,7 @@ poetry run alembic upgrade head
   - Coverage reporting
   - JUnit XML output
 
-#### 3. **keystone-app** (Application Container)
+#### 3. **permiso-app** (Application Container)
 - **Purpose**: Production-like testing
 - **Features**:
   - FastAPI application server
@@ -137,7 +137,7 @@ poetry run alembic upgrade head
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd keystone
+cd permiso
 
 # Start development environment
 ./scripts/test.sh setup
@@ -150,7 +150,7 @@ cd keystone
 docker-compose up -d
 
 # Enter development container
-docker-compose exec keystone-dev bash
+docker-compose exec permiso-dev bash
 
 # Inside container - run tests
 poetry run pytest tests/test_app/test_models/test_user.py -v
@@ -180,17 +180,17 @@ Since the project directory is mounted as a volume (`./:/app`), any changes you 
 
 ```bash
 # Connect to main database
-docker-compose exec postgres psql -U keystone -d keystone
+docker-compose exec postgres psql -U permiso -d permiso
 
 # Connect to test database
-docker-compose exec postgres-test psql -U keystone_test -d keystone_test
+docker-compose exec postgres-test psql -U permiso_test -d permiso_test
 
 # Run migrations
-docker-compose exec keystone-dev poetry run alembic upgrade head
+docker-compose exec permiso-dev poetry run alembic upgrade head
 
 # Reset database (careful!)
-docker-compose exec keystone-dev poetry run alembic downgrade base
-docker-compose exec keystone-dev poetry run alembic upgrade head
+docker-compose exec permiso-dev poetry run alembic downgrade base
+docker-compose exec permiso-dev poetry run alembic upgrade head
 ```
 
 ## Testing
@@ -206,7 +206,7 @@ docker-compose exec keystone-dev poetry run alembic upgrade head
 ./scripts/test.sh file tests/test_app/test_models/test_user.py
 
 # Run with coverage
-docker-compose exec keystone-dev poetry run pytest tests/test_app/test_models/ --cov=app.models --cov-report=term
+docker-compose exec permiso-dev poetry run pytest tests/test_app/test_models/ --cov=app.models --cov-report=term
 ```
 
 #### 2. Integration Tests
@@ -233,7 +233,7 @@ docker-compose exec keystone-dev poetry run pytest tests/test_app/test_models/ -
 ./scripts/test.sh imports
 
 # Manual import testing
-docker-compose exec keystone-dev poetry run python -c "from app.main import app; print('Success!')"
+docker-compose exec permiso-dev poetry run python -c "from app.main import app; print('Success!')"
 ```
 
 ### Test Reports
@@ -274,10 +274,10 @@ start htmlcov/index.html # Windows
 docker info
 
 # Check container logs
-./scripts/test.sh logs keystone-dev
+./scripts/test.sh logs permiso-dev
 
 # Rebuild containers
-docker-compose build --no-cache keystone-dev
+docker-compose build --no-cache permiso-dev
 ```
 
 #### 2. Database Connection Issues
@@ -291,7 +291,7 @@ docker-compose ps postgres
 
 # Reset database
 docker-compose down postgres
-docker volume rm keystone_postgres_data
+docker volume rm permiso_postgres_data
 docker-compose up -d postgres
 ```
 
@@ -302,10 +302,10 @@ docker-compose up -d postgres
 ./scripts/test.sh imports
 
 # Check Python path
-docker-compose exec keystone-dev poetry run python -c "import sys; print(sys.path)"
+docker-compose exec permiso-dev poetry run python -c "import sys; print(sys.path)"
 
 # Reinstall dependencies
-docker-compose exec keystone-dev poetry install --with dev
+docker-compose exec permiso-dev poetry install --with dev
 ```
 
 #### 4. Port Conflicts
@@ -339,13 +339,13 @@ sudo ./scripts/test.sh setup
 
 ```bash
 # Enter container with bash
-docker-compose exec keystone-dev bash
+docker-compose exec permiso-dev bash
 
 # Run Python interactively
-docker-compose exec keystone-dev poetry run python
+docker-compose exec permiso-dev poetry run python
 
 # Debug specific test
-docker-compose exec keystone-dev poetry run pytest tests/test_app/test_models/test_user.py::TestUserModel::test_user_creation -v -s --pdb
+docker-compose exec permiso-dev poetry run pytest tests/test_app/test_models/test_user.py::TestUserModel::test_user_creation -v -s --pdb
 ```
 
 #### 2. Log Analysis
@@ -356,23 +356,23 @@ docker-compose exec keystone-dev poetry run pytest tests/test_app/test_models/te
 
 # View specific service logs
 ./scripts/test.sh logs postgres
-./scripts/test.sh logs keystone-dev
+./scripts/test.sh logs permiso-dev
 
 # Follow logs in real-time
-docker-compose logs -f keystone-dev
+docker-compose logs -f permiso-dev
 ```
 
 #### 3. Container Inspection
 
 ```bash
 # Inspect container
-docker inspect keystone-dev
+docker inspect permiso-dev
 
 # Check container resources
-docker stats keystone-dev
+docker stats permiso-dev
 
 # List container processes
-docker-compose exec keystone-dev ps aux
+docker-compose exec permiso-dev ps aux
 ```
 
 ## Advanced Usage
@@ -399,7 +399,7 @@ docker-compose --env-file .env.local up -d
 
 ```bash
 # Start application container
-docker-compose --profile app up -d keystone-app
+docker-compose --profile app up -d permiso-app
 
 # Test the API
 curl http://localhost:8000/health
@@ -410,30 +410,30 @@ curl http://localhost:8000/docs
 
 ```bash
 # Run performance tests
-docker-compose exec keystone-dev poetry run pytest tests/ -m "not slow" --durations=10
+docker-compose exec permiso-dev poetry run pytest tests/ -m "not slow" --durations=10
 
 # Memory profiling
-docker-compose exec keystone-dev poetry run pytest --memray tests/test_app/test_models/
+docker-compose exec permiso-dev poetry run pytest --memray tests/test_app/test_models/
 ```
 
 ### 4. Database Seeding
 
 ```bash
 # Create seed data script
-docker-compose exec keystone-dev poetry run python scripts/seed_data.py
+docker-compose exec permiso-dev poetry run python scripts/seed_data.py
 
 # Or run SQL directly
-docker-compose exec postgres psql -U keystone -d keystone -f scripts/seed.sql
+docker-compose exec postgres psql -U permiso -d permiso -f scripts/seed.sql
 ```
 
 ### 5. Backup and Restore
 
 ```bash
 # Backup database
-docker-compose exec postgres pg_dump -U keystone keystone > backup.sql
+docker-compose exec postgres pg_dump -U permiso permiso > backup.sql
 
 # Restore database
-docker-compose exec -T postgres psql -U keystone keystone < backup.sql
+docker-compose exec -T postgres psql -U permiso permiso < backup.sql
 ```
 
 ## Cleanup
@@ -486,4 +486,4 @@ docker system prune -a -f --volumes
 - Run tests in parallel when possible
 - Monitor container resource usage
 
-This Docker setup provides a complete, isolated, and reproducible development environment for the Keystone authentication system, making it easy to develop, test, and debug without affecting your host system.
+This Docker setup provides a complete, isolated, and reproducible development environment for the permiso authentication system, making it easy to develop, test, and debug without affecting your host system.

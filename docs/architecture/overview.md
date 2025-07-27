@@ -1,10 +1,10 @@
 # 🏗️ System Architecture Overview
 
-This document provides a comprehensive overview of the Keystone Authentication System architecture, including its components, data flow, and design principles.
+This document provides a comprehensive overview of the permiso Authentication System architecture, including its components, data flow, and design principles.
 
 ## 🎯 System Overview
 
-Keystone is a FastAPI-based centralized authentication and authorization system designed for enterprise-grade security and scalability. It provides OAuth2-compliant authentication with JWT tokens, role-based access control, and comprehensive security features.
+permiso is a FastAPI-based centralized authentication and authorization system designed for enterprise-grade security and scalability. It provides OAuth2-compliant authentication with JWT tokens, role-based access control, and comprehensive security features.
 
 ## 📊 High-Level Architecture
 
@@ -21,7 +21,7 @@ graph TB
         LB[Nginx/HAProxy]
     end
     
-    subgraph "Keystone Authentication System"
+    subgraph "permiso Authentication System"
         subgraph "API Layer"
             AUTH_API[Authentication API]
             USER_API[User Management API]
@@ -540,7 +540,7 @@ graph TD
 graph TB
     DEV[Developer Machine]
     DEV --> DOCKER[Docker Compose]
-    DOCKER --> APP[Keystone App]
+    DOCKER --> APP[permiso App]
     DOCKER --> PG[PostgreSQL]
     DOCKER --> REDIS[Redis]
 ```
@@ -554,9 +554,9 @@ graph TB
     end
     
     subgraph "Application Tier"
-        APP1[Keystone Instance 1]
-        APP2[Keystone Instance 2]
-        APP3[Keystone Instance N]
+        APP1[permiso Instance 1]
+        APP2[permiso Instance 2]
+        APP3[permiso Instance N]
     end
     
     subgraph "Database Tier"
@@ -620,11 +620,23 @@ graph TB
 
 ## 📚 Related Documentation
 
+### Architecture & Design
+- [Complete System Architecture](authentication-system.md) - Comprehensive system architecture overview
 - [Database Schema](database-schema.md) - Detailed database design
 - [Security Model](security-model.md) - Security architecture details
-- [Deployment Guide](deployment.md) - Production deployment strategies
+
+### Implementation Guides
+- [FastAPI Dependency Patterns](../development/fastapi-dependency-patterns.md) - Dependency injection architecture
+- [Code Examples & Best Practices](../development/code-examples-best-practices.md) - Implementation patterns
+- [Service-to-Service Authentication](../developer-portal/integrations/service-to-service.md) - Service architecture patterns
+- [Web Application Integration](../developer-portal/integrations/web-applications.md) - Frontend architecture patterns
+
+### Operations & Deployment
+- [Deployment Guide](../deployment/production-deployment.md) - Production deployment strategies
+- [Security Guide](../security/security-guide.md) - Security architecture implementation
+- [Testing Guide](../development/testing.md) - Testing architecture and strategies
 - [API Documentation](../api/authentication.md) - API endpoint specifications
 
 ---
 
-**Architecture designed for scale! 🏗️ Build secure, scalable authentication systems with Keystone.**
+**Architecture designed for scale! 🏗️ Build secure, scalable authentication systems with permiso.**

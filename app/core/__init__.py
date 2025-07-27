@@ -1,1 +1,1 @@
-"""Core security and utility modules for Keystone authentication system."""
+"""Core security and utility modules for permiso authentication system."""

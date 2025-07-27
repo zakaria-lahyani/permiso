@@ -1,4 +1,4 @@
-# Keystone Authentication System
+# permiso Authentication System
 
 A centralized authentication and authorization system built with FastAPI, providing secure user management, role-based access control, and JWT token authentication.
 
@@ -31,12 +31,12 @@ A centralized authentication and authorization system built with FastAPI, provid
 
 2. **Start the development environment:**
    ```bash
-   docker compose up -d keystone-dev
+   docker compose up -d permiso-dev
    ```
 
 3. **Run the application:**
    ```bash
-   docker compose up -d keystone-app
+   docker compose up -d permiso-app
    ```
 
 ### Local Development
