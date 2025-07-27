@@ -433,6 +433,19 @@ def user_access_token(test_user: User) -> str:
     )
 
 
+# Helper function to convert UUIDs to strings for JSON serialization
+def uuid_to_str(obj):
+    """Convert UUID objects to strings for JSON serialization."""
+    import uuid
+    if isinstance(obj, uuid.UUID):
+        return str(obj)
+    elif isinstance(obj, list):
+        return [uuid_to_str(item) for item in obj]
+    elif isinstance(obj, dict):
+        return {key: uuid_to_str(value) for key, value in obj.items()}
+    return obj
+
+
 @pytest.fixture
 def test_refresh_token(test_user: User) -> str:
     """Create test refresh token."""

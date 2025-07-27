@@ -146,7 +146,7 @@ class TestUsersCreateEndpoint:
             "username": "userroles123",
             "email": "userroles@example.com",
             "password": "UserRoles123!",
-            "role_ids": [test_role.id]
+            "role_ids": [str(test_role.id)]
         }
         
         response = await async_client.post(
@@ -160,7 +160,7 @@ class TestUsersCreateEndpoint:
         created_user = response.json()
         assert "roles" in created_user
         assert len(created_user["roles"]) == 1
-        assert created_user["roles"][0]["id"] == test_role.id
+        assert created_user["roles"][0]["id"] == str(test_role.id)
 
     @pytest.mark.integration
     async def test_create_user_duplicate_username(self, async_client: AsyncClient, admin_access_token: str, test_user: User):
@@ -417,7 +417,7 @@ class TestUsersUpdateEndpoint:
     async def test_update_user_roles(self, async_client: AsyncClient, admin_access_token: str, test_user: User, test_role: Role):
         """Test user role update by admin."""
         update_data = {
-            "role_ids": [test_role.id]
+            "role_ids": [str(test_role.id)]
         }
         
         response = await async_client.put(
@@ -431,7 +431,7 @@ class TestUsersUpdateEndpoint:
         updated_user = response.json()
         assert "roles" in updated_user
         assert len(updated_user["roles"]) == 1
-        assert updated_user["roles"][0]["id"] == test_role.id
+        assert updated_user["roles"][0]["id"] == str(test_role.id)
 
     @pytest.mark.integration
     async def test_update_user_not_found(self, async_client: AsyncClient, admin_access_token: str):

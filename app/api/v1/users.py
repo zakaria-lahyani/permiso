@@ -16,8 +16,7 @@ from app.core.security import (
     get_current_user,
     require_admin,
     require_scopes,
-    require_roles,
-    AdminUser
+    require_roles
 )
 from app.core.exceptions import (
     UserNotFoundError,
@@ -120,8 +119,8 @@ async def list_users(
     role_id: Optional[int] = Query(None, description="Filter by role ID"),
     page: int = Query(1, ge=1, description="Page number"),
     per_page: int = Query(20, ge=1, le=100, description="Items per page"),
-    current_user = Depends(AdminUser),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin())
 ):
     """
     List users with pagination and filtering.
@@ -199,8 +198,8 @@ async def list_users(
 @router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def create_user(
     user_data: UserCreate,
-    current_user = Depends(require_admin),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin())
 ):
     """
     Create a new user.
@@ -253,7 +252,7 @@ async def create_user(
     except ConflictError as e:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail={"error": "conflict", "error_description": str(e)}
+            detail={"detail": str(e)}
         )
     except Exception as e:
         await db.rollback()
@@ -290,8 +289,8 @@ async def get_user_profile(
 @router.put("/me", response_model=UserResponse)
 async def update_current_user_profile(
     profile_data: UserProfileUpdate,
-    current_user = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
 ):
     """
     Update current user's profile.
@@ -325,7 +324,7 @@ async def update_current_user_profile(
     except ConflictError as e:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail={"error": "conflict", "error_description": str(e)}
+            detail={"detail": str(e)}
         )
     except Exception as e:
         await db.rollback()
@@ -338,8 +337,8 @@ async def update_current_user_profile(
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(
     user_id: str,
-    current_user = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
 ):
     """
     Get user by ID.
@@ -347,11 +346,21 @@ async def get_user(
     Users can view their own profile or admins can view any profile.
     """
     try:
+        # Validate UUID format
+        try:
+            import uuid
+            uuid.UUID(user_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
         # Check if user is accessing their own profile or is admin
         if user_id != str(current_user.id) and not await current_user.is_admin():
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail={"error": "forbidden", "error_description": "Access denied"}
+                detail="Access denied"
             )
         
         # Get user
@@ -361,22 +370,22 @@ async def get_user(
         user = result.scalar_one_or_none()
         
         if not user:
-            raise UserNotFoundError(f"User with ID {user_id} not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
         
         return UserResponse.from_orm(user)
         
-    except UserNotFoundError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": "not_found", "error_description": "User not found"}
-        )
+    except HTTPException:
+        raise
     except Exception as e:
         import traceback
         print(f"Exception in get_user: {e}")
         print(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={"error": "internal_error", "error_description": str(e)}
+            detail=str(e)
         )
 
 
@@ -384,15 +393,32 @@ async def get_user(
 async def update_user(
     user_id: str,
     user_data: UserUpdate,
-    current_user = Depends(require_admin),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
 ):
     """
     Update user by ID.
     
-    Requires admin role.
+    Users can update their own profile or admins can update any profile.
     """
     try:
+        # Validate UUID format
+        try:
+            import uuid
+            uuid.UUID(user_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"detail": "User not found"}
+            )
+        
+        # Check if user is updating their own profile or is admin
+        if user_id != str(current_user.id) and not await current_user.is_admin():
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied"
+            )
+        
         # Get user
         result = await db.execute(
             select(User).options(selectinload(User.roles)).where(User.id == user_id)
@@ -443,7 +469,7 @@ async def update_user(
         status_code = status.HTTP_404_NOT_FOUND if isinstance(e, UserNotFoundError) else status.HTTP_409_CONFLICT
         raise HTTPException(
             status_code=status_code,
-            detail={"error": "not_found" if isinstance(e, UserNotFoundError) else "conflict", "error_description": str(e)}
+            detail=str(e)
         )
     except Exception as e:
         await db.rollback()
@@ -456,8 +482,8 @@ async def update_user(
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(
     user_id: str,
-    current_user = Depends(require_admin),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin())
 ):
     """
     Delete user by ID.
@@ -465,11 +491,21 @@ async def delete_user(
     Requires admin role. Users cannot delete themselves.
     """
     try:
+        # Validate UUID format
+        try:
+            import uuid
+            uuid.UUID(user_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
         # Prevent self-deletion
-        if user_id == current_user.id:
+        if user_id == str(current_user.id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail={"error": "forbidden", "error_description": "Cannot delete your own account"}
+                detail={"detail": "Cannot delete your own account"}
             )
         
         # Get user
@@ -477,19 +513,22 @@ async def delete_user(
         user = result.scalar_one_or_none()
         
         if not user:
-            raise UserNotFoundError(f"User with ID {user_id} not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
         
         # Delete user
         await db.delete(user)
         await db.commit()
         
-    except UserNotFoundError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": "not_found", "error_description": "User not found"}
-        )
+    except HTTPException:
+        raise
     except Exception as e:
         await db.rollback()
+        import traceback
+        print(f"Delete user error: {e}")
+        print(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"error": "internal_error", "error_description": str(e)}
@@ -500,8 +539,8 @@ async def delete_user(
 async def update_user_password(
     user_id: str,
     password_data: UserPasswordUpdate,
-    current_user = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
 ):
     """
     Update user password.
@@ -509,11 +548,21 @@ async def update_user_password(
     Users can update their own password or admins can update any password.
     """
     try:
+        # Validate UUID format
+        try:
+            import uuid
+            uuid.UUID(user_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
         # Check if user is updating their own password or is admin
-        if user_id != current_user.id and not await current_user.is_admin():
+        if user_id != str(current_user.id) and not await current_user.is_admin():
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail={"error": "forbidden", "error_description": "Access denied"}
+                detail="Access denied"
             )
         
         # Get user
@@ -521,14 +570,17 @@ async def update_user_password(
         user = result.scalar_one_or_none()
         
         if not user:
-            raise UserNotFoundError(f"User with ID {user_id} not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
         
         # Verify current password (only for self-update)
-        if user_id == current_user.id:
+        if user_id == str(current_user.id):
             if not verify_password(password_data.current_password, user.password_hash):
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail={"error": "invalid_password", "error_description": "Current password is incorrect"}
+                    detail={"detail": "Current password is incorrect"}
                 )
         
         # Update password
@@ -539,11 +591,8 @@ async def update_user_password(
         
         return {"message": "Password updated successfully"}
         
-    except UserNotFoundError:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={"error": "not_found", "error_description": "User not found"}
-        )
+    except HTTPException:
+        raise
     except Exception as e:
         await db.rollback()
         raise HTTPException(
@@ -556,8 +605,8 @@ async def update_user_password(
 async def update_user_roles(
     user_id: str,
     role_data: UserRoleUpdate,
-    current_user = Depends(require_admin),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin())
 ):
     """
     Update user roles.
@@ -565,6 +614,16 @@ async def update_user_roles(
     Requires admin role.
     """
     try:
+        # Validate UUID format
+        try:
+            import uuid
+            uuid.UUID(user_id)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"detail": "User not found"}
+            )
+        
         # Get user
         result = await db.execute(
             select(User).options(selectinload(User.roles)).where(User.id == user_id)
@@ -604,8 +663,8 @@ async def update_user_roles(
 
 @router.get("/stats/overview", response_model=UserStats)
 async def get_user_stats(
-    current_user = Depends(require_admin),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(require_admin())
 ):
     """
     Get user statistics overview.

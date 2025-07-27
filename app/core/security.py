@@ -52,10 +52,13 @@ class SecurityUtils:
             Bearer token string
             
         Raises:
-            AuthenticationError: If no token provided
+            HTTPException: If no token provided (401 status)
         """
         if not credentials or not credentials.credentials:
-            raise AuthenticationError("No authentication token provided")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="No authentication token provided"
+            )
         
         return credentials.credentials
 
@@ -228,7 +231,6 @@ async def get_current_token_payload(
         token = SecurityUtils.extract_bearer_token(credentials)
         payload = jwt_service.validate_token(token)
         
-        
         # Check if token is revoked
         jti = payload.get(JWTClaims.JWT_ID)
         if jti and await SecurityUtils.is_token_revoked(jti, redis):
@@ -239,7 +241,13 @@ async def get_current_token_payload(
     except (AuthenticationError, AuthorizationError) as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=e.to_dict(),
+            detail=str(e),
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -276,7 +284,13 @@ async def get_current_user(
     except (AuthenticationError, UserNotFoundError, UserDisabledError, UserLockedError) as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=e.to_dict(),
+            detail=str(e),
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -313,7 +327,7 @@ async def get_current_service_client(
     except (AuthenticationError, ServiceClientNotFoundError, ServiceClientDisabledError) as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=e.to_dict(),
+            detail=str(e),
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -402,7 +416,7 @@ def require_roles(required_roles: List[str]):
     Returns:
         FastAPI dependency function
     """
-    async def check_roles(current_user = Depends(get_current_user)):
+    async def check_roles(current_user: User = Depends(get_current_user)):
         try:
             user_roles = await current_user.get_role_names()
             if not any(role in user_roles for role in required_roles):
@@ -416,7 +430,12 @@ def require_roles(required_roles: List[str]):
         except AuthorizationError as e:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=e.to_dict(),
+                detail=str(e),
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Role check failed: {str(e)}",
             )
     
     # Create a simple function for tests to access
@@ -446,9 +465,31 @@ def require_admin():
     Returns:
         FastAPI dependency function
     """
-    # Create a consistent admin dependency
-    admin_dependency = require_roles(["admin"])
-    return admin_dependency
+    async def check_admin(current_user: User = Depends(get_current_user)):
+        try:
+            # Check if user is superuser (direct property access)
+            if current_user.is_superuser:
+                return current_user
+            
+            # Check if user has admin role (simplified check)
+            user_roles = await current_user.get_role_names()
+            if "admin" not in user_roles:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Admin privileges required"
+                )
+            
+            return current_user
+        
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Admin check failed: {str(e)}"
+            )
+    
+    return check_admin
 
 
 def require_any_scope(allowed_scopes: List[str]):
@@ -488,7 +529,7 @@ def require_any_scope(allowed_scopes: List[str]):
         except InsufficientScopeError as e:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail=e.to_dict(),
+                detail=str(e),
             )
     
     # Create a simple function for tests to access

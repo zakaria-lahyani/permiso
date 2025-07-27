@@ -85,21 +85,18 @@ class UserPasswordUpdate(BaseModel):
 
 class RoleInfo(BaseModel):
     """Role information for user responses."""
-    id: uuid.UUID = Field(..., description="Role ID")
+    id: str = Field(..., description="Role ID")
     name: str
     description: Optional[str] = None
 
     model_config = {
-        "from_attributes": True,
-        "json_encoders": {
-            uuid.UUID: str,
-        }
+        "from_attributes": True
     }
 
 
 class UserResponse(BaseModel):
     """Schema for user response."""
-    id: uuid.UUID = Field(..., description="User ID")
+    id: str = Field(..., description="User ID")
     username: str
     email: str
     first_name: Optional[str] = None
@@ -120,7 +117,6 @@ class UserResponse(BaseModel):
     model_config = {
         "from_attributes": True,
         "json_encoders": {
-            uuid.UUID: str,
             datetime: lambda v: v.isoformat(),
         }
     }
@@ -128,42 +124,51 @@ class UserResponse(BaseModel):
     @classmethod
     def from_orm(cls, user):
         """Create UserResponse from User ORM object."""
-        # Get scope names synchronously from the user's to_dict method
-        user_dict = user.to_dict()
-        
-        # Convert roles to RoleInfo objects
-        roles = []
-        if hasattr(user, 'roles') and user.roles:
-            for role in user.roles:
-                roles.append(RoleInfo(
-                    id=role.id,  # Keep as UUID, Pydantic will handle serialization
-                    name=role.name,
-                    description=getattr(role, 'description', None)
-                ))
-        
-        # Get scope names - use both scope_names and scopes for compatibility
-        scope_names = user_dict.get('scope_names', [])
-        scopes = user_dict.get('scopes', scope_names)  # Use scopes if available, fallback to scope_names
-        
-        return cls(
-            id=user.id,  # Keep as UUID, Pydantic will handle serialization
-            username=user.username,
-            email=user.email,
-            first_name=user.first_name,
-            last_name=user.last_name,
-            display_name=user.display_name,
-            bio=user.bio,
-            is_active=user.is_active,
-            is_verified=user.is_verified,
-            is_superuser=user.is_superuser,
-            full_name=user.full_name,
-            last_login=user.last_login,
-            created_at=user.created_at,
-            updated_at=user.updated_at,
-            roles=roles,
-            scope_names=scope_names,
-            scopes=scopes
-        )
+        try:
+            # Get scope names synchronously from the user's to_dict method
+            user_dict = user.to_dict()
+            
+            # Convert roles to RoleInfo objects
+            roles = []
+            if hasattr(user, 'roles') and user.roles:
+                for role in user.roles:
+                    try:
+                        roles.append(RoleInfo(
+                            id=str(role.id),  # Convert UUID to string explicitly
+                            name=role.name,
+                            description=getattr(role, 'description', None)
+                        ))
+                    except Exception as e:
+                        print(f"Error processing role {role}: {e}")
+                        continue
+            
+            # Get scope names - use both scope_names and scopes for compatibility
+            scope_names = user_dict.get('scope_names', [])
+            scopes = user_dict.get('scopes', scope_names)  # Use scopes if available, fallback to scope_names
+            
+            return cls(
+                id=str(user.id),  # Convert UUID to string explicitly
+                username=user.username,
+                email=user.email,
+                first_name=user.first_name,
+                last_name=user.last_name,
+                display_name=user.display_name,
+                bio=user.bio,
+                is_active=user.is_active,
+                is_verified=user.is_verified,
+                is_superuser=user.is_superuser,
+                full_name=user.full_name,
+                last_login=user.last_login,
+                created_at=user.created_at,
+                updated_at=user.updated_at,
+                roles=roles,
+                scope_names=scope_names,
+                scopes=scopes
+            )
+        except Exception as e:
+            print(f"Error in UserResponse.from_orm: {e}")
+            print(f"User object: {user}")
+            raise
 
 
 class UserListResponse(BaseModel):
