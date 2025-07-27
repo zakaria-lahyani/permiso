@@ -1,6 +1,6 @@
 """Role model for role-based access control using SQLAlchemy 2.0 style."""
 
-from typing import List, TYPE_CHECKING
+from typing import List, TYPE_CHECKING, Optional
 from datetime import datetime
 
 from sqlalchemy import String, Text, Boolean, DateTime
@@ -200,13 +200,22 @@ class Role(BaseModel):
 
     def soft_delete(self) -> None:
         """
-        Soft delete the role by marking it as inactive.
-        Note: This is a simplified implementation without database schema changes.
+        Soft delete the role by marking it as deleted.
         """
         # For now, we'll use a simple approach by modifying the name
-        # In a full implementation, you would add is_deleted and deleted_at fields
+        # In a full implementation, you would add is_deleted and deleted_at fields to the database
         if not self.name.startswith("deleted_"):
-            self.name = f"deleted_{self.name}_{self.id}"
+            # Calculate available space: 50 - "deleted_" (8 chars) - "_" (1 char) - uuid (8 chars) = 33 chars max for original name
+            max_name_length = 33
+            truncated_name = self.name[:max_name_length] if len(self.name) > max_name_length else self.name
+            new_name = f"deleted_{truncated_name}_{str(self.id)[:8]}"  # Use first 8 chars of UUID
+            
+            # Ensure we don't exceed 50 characters
+            if len(new_name) > 50:
+                # Fallback: just use deleted_ + first few chars of UUID
+                new_name = f"deleted_{str(self.id)[:36]}"[:50]
+            
+            self.name = new_name
 
     def get_permissions(self) -> dict:
         """
