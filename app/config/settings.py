@@ -2,11 +2,27 @@
 
 import os
 import secrets
-from typing import List, Optional
+from typing import List, Optional, Annotated
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings
-from pydantic import field_validator
+from pydantic import field_validator, Field
+from pydantic_settings.sources import EnvSettingsSource
+
+
+class CustomEnvSettingsSource(EnvSettingsSource):
+    """Custom environment settings source that handles list fields properly."""
+    
+    def prepare_field_value(self, field_name: str, field, raw_value, value_is_complex: bool):
+        """Override to handle list fields without JSON parsing."""
+        if field_name in ('ALLOWED_HOSTS', 'CORS_ORIGINS') and isinstance(raw_value, str):
+            # Handle list fields as comma-separated strings
+            if not raw_value.strip():
+                return [] if field_name == 'CORS_ORIGINS' else ["localhost", "127.0.0.1", "*"]
+            return [item.strip() for item in raw_value.split(',') if item.strip()]
+        
+        # For other fields, use the default behavior
+        return super().prepare_field_value(field_name, field, raw_value, value_is_complex)
 
 
 class Settings(BaseSettings):
@@ -145,7 +161,7 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             if not v.strip():
                 return []
-            return [origin.strip() for origin in v.split(',')]
+            return [origin.strip() for origin in v.split(',') if origin.strip()]
         elif isinstance(v, list):
             return v
         return []
@@ -154,17 +170,66 @@ class Settings(BaseSettings):
     @classmethod
     def parse_allowed_hosts(cls, v):
         if isinstance(v, str):
-            return [host.strip() for host in v.split(',')]
+            if not v.strip():
+                return ["localhost", "127.0.0.1", "*"]
+            return [host.strip() for host in v.split(',') if host.strip()]
         elif isinstance(v, list):
             return v
         return ["localhost", "127.0.0.1", "*"]
+
+    @field_validator('DATABASE_URL')
+    @classmethod
+    def validate_database_url(cls, v):
+        if not v or not isinstance(v, str):
+            raise ValueError('Database URL is required and must be a string')
+        
+        # Basic URL validation - allow various database URL formats including async drivers
+        valid_prefixes = [
+            'postgresql://', 'postgresql+asyncpg://', 'postgresql+psycopg2://',
+            'sqlite://', 'sqlite+aiosqlite://',
+            'mysql://', 'mysql+aiomysql://', 'mysql+pymysql://'
+        ]
+        
+        if not any(v.startswith(prefix) for prefix in valid_prefixes):
+            raise ValueError('Database URL must be a valid database connection string')
+        
+        return v
+
+    @field_validator('REDIS_URL')
+    @classmethod
+    def validate_redis_url(cls, v):
+        if not v or not isinstance(v, str):
+            raise ValueError('Redis URL is required and must be a string')
+        
+        # Basic URL validation - must start with redis://
+        if not v.startswith('redis://'):
+            raise ValueError('Redis URL must be a valid Redis connection string starting with redis://')
+        
+        return v
 
     model_config = {
         "env_file": ".env",
         "env_file_encoding": "utf-8",
         "case_sensitive": True,
-        "extra": "ignore"
+        "extra": "ignore",
     }
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls,
+        init_settings,
+        env_settings,
+        dotenv_settings,
+        file_secret_settings,
+    ):
+        """Customize settings sources to handle list fields properly."""
+        return (
+            init_settings,
+            CustomEnvSettingsSource(settings_cls),
+            dotenv_settings,
+            file_secret_settings,
+        )
 
     def __init__(self, **kwargs):
         """Initialize settings with production overrides."""

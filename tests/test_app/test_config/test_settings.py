@@ -38,7 +38,7 @@ class TestSettingsValidation:
             "API_V1_PREFIX": "/api/test/v1",
             "DATABASE_URL": "postgresql://test:test@localhost/test",
             "REDIS_URL": "redis://localhost:6379/1",
-            "JWT_SECRET_KEY": "test-jwt-secret",
+            "JWT_SECRET_KEY": "test-jwt-secret-key-for-testing-32chars",
             "JWT_ALGORITHM": "HS512",
             "ACCESS_TOKEN_EXPIRE_MINUTES": "60",
             "REFRESH_TOKEN_EXPIRE_DAYS": "14",
@@ -57,7 +57,7 @@ class TestSettingsValidation:
             assert settings.debug is True
             assert settings.environment == "development"
             assert settings.api_v1_prefix == "/api/test/v1"
-            assert settings.jwt_secret_key == "test-jwt-secret"
+            assert settings.jwt_secret_key == "test-jwt-secret-key-for-testing-32chars"
             assert settings.jwt_algorithm == "HS512"
             assert settings.access_token_expire_minutes == 60
             assert settings.refresh_token_expire_days == 14
@@ -405,6 +405,7 @@ class TestSettingsIntegration:
             "REDIS_URL": "redis://localhost:6379/0",
             "JWT_SECRET_KEY": "test-secret-key-for-testing-32chars",
             "DEBUG": "true",
+            "ENVIRONMENT": "development",
             "CORS_ORIGINS": "http://localhost:3000"
         }, clear=True):
             settings = Settings()
