@@ -415,6 +415,7 @@ async def get_user(
 async def update_user(
     user_id: str,
     user_data: UserUpdate,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
@@ -424,6 +425,23 @@ async def update_user(
     Users can update their own profile or admins can update any profile.
     """
     try:
+        # Check for forbidden fields in request body
+        try:
+            request_body = await request.json()
+            forbidden_fields = ['username', 'password', 'password_hash']
+            
+            for field in forbidden_fields:
+                if field in request_body:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail=f"Field '{field}' cannot be updated via this endpoint"
+                    )
+        except HTTPException:
+            raise
+        except Exception:
+            # If we can't parse the request body, continue with validation
+            pass
+        
         # Validate UUID format
         try:
             import uuid
@@ -475,13 +493,30 @@ async def update_user(
         
         # Update roles if provided
         if user_data.role_ids is not None:
-            # Convert string UUIDs to UUID objects
+            # Convert string UUIDs to UUID objects and validate they exist
             import uuid
-            role_uuids = [uuid.UUID(role_id) for role_id in user_data.role_ids]
+            try:
+                role_uuids = [uuid.UUID(role_id) for role_id in user_data.role_ids]
+            except ValueError:
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Invalid role ID format"
+                )
+            
             roles_result = await db.execute(
                 select(Role).where(Role.id.in_(role_uuids))
             )
             roles = roles_result.scalars().all()
+            
+            # Check if all requested roles exist
+            if len(roles) != len(role_uuids):
+                found_role_ids = {str(role.id) for role in roles}
+                missing_role_ids = [role_id for role_id in user_data.role_ids if role_id not in found_role_ids]
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Invalid role IDs: {missing_role_ids}"
+                )
+            
             user.roles.clear()
             user.roles.extend(roles)
         
@@ -490,6 +525,8 @@ async def update_user(
         
         return UserResponse.from_orm(user)
         
+    except HTTPException:
+        raise
     except (UserNotFoundError, ConflictError) as e:
         status_code = status.HTTP_404_NOT_FOUND if isinstance(e, UserNotFoundError) else status.HTTP_409_CONFLICT
         raise HTTPException(
