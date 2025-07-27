@@ -199,7 +199,7 @@ async def list_users(
 async def create_user(
     user_data: UserCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(require_admin())
+    current_user = Depends(get_current_user)
 ):
     """
     Create a new user.
@@ -207,6 +207,13 @@ async def create_user(
     Requires admin role.
     """
     try:
+        # Check if user is admin
+        if not await current_user.is_admin():
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied"
+            )
+        
         # Check if username already exists
         existing_user = await User.get_by_username(db, user_data.username)
         if existing_user:
@@ -234,21 +241,33 @@ async def create_user(
         )
         
         db.add(user)
-        await db.flush()  # Get user ID
-        
-        # Assign roles if provided
-        if user_data.role_ids:
-            roles_result = await db.execute(
-                select(Role).where(Role.id.in_(user_data.role_ids))
-            )
-            roles = roles_result.scalars().all()
-            user.roles.extend(roles)
-        
         await db.commit()
         await db.refresh(user)
         
+        # Assign roles if provided (after user is committed)
+        if user_data.role_ids:
+            # Convert string UUIDs to UUID objects
+            import uuid
+            role_uuids = [uuid.UUID(role_id) for role_id in user_data.role_ids]
+            roles_result = await db.execute(
+                select(Role).where(Role.id.in_(role_uuids))
+            )
+            roles = roles_result.scalars().all()
+            
+            # Re-fetch user with roles relationship loaded
+            user_result = await db.execute(
+                select(User).options(selectinload(User.roles)).where(User.id == user.id)
+            )
+            user = user_result.scalar_one()
+            user.roles.extend(roles)
+            
+            await db.commit()
+            await db.refresh(user)
+        
         return UserResponse.from_orm(user)
         
+    except HTTPException:
+        raise
     except ConflictError as e:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -256,6 +275,9 @@ async def create_user(
         )
     except Exception as e:
         await db.rollback()
+        import traceback
+        print(f"Create user error: {e}")
+        print(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail={"error": "internal_error", "error_description": str(e)}
@@ -453,8 +475,11 @@ async def update_user(
         
         # Update roles if provided
         if user_data.role_ids is not None:
+            # Convert string UUIDs to UUID objects
+            import uuid
+            role_uuids = [uuid.UUID(role_id) for role_id in user_data.role_ids]
             roles_result = await db.execute(
-                select(Role).where(Role.id.in_(user_data.role_ids))
+                select(Role).where(Role.id.in_(role_uuids))
             )
             roles = roles_result.scalars().all()
             user.roles.clear()
@@ -634,8 +659,11 @@ async def update_user_roles(
             raise UserNotFoundError(f"User with ID {user_id} not found")
         
         # Get roles
+        # Convert string UUIDs to UUID objects
+        import uuid
+        role_uuids = [uuid.UUID(role_id) for role_id in role_data.role_ids]
         roles_result = await db.execute(
-            select(Role).where(Role.id.in_(role_data.role_ids))
+            select(Role).where(Role.id.in_(role_uuids))
         )
         roles = roles_result.scalars().all()
         
