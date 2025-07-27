@@ -52,13 +52,10 @@ class SecurityUtils:
             Bearer token string
             
         Raises:
-            HTTPException: If no token provided (401 status)
+            AuthenticationError: If no token provided
         """
         if not credentials or not credentials.credentials:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="No authentication token provided"
-            )
+            raise AuthenticationError("No authentication token provided")
         
         return credentials.credentials
 
@@ -458,38 +455,20 @@ def require_roles(required_roles: List[str]):
     return check_roles
 
 
+# Cache the admin roles dependency to ensure object identity
+_admin_roles_dependency = None
+
 def require_admin():
     """
     Dependency for admin-only endpoints.
     
     Returns:
-        FastAPI dependency function
+        FastAPI dependency function equivalent to require_roles(["admin"])
     """
-    async def check_admin(current_user: User = Depends(get_current_user)):
-        try:
-            # Check if user is superuser (direct property access)
-            if current_user.is_superuser:
-                return current_user
-            
-            # Check if user has admin role (simplified check)
-            user_roles = await current_user.get_role_names()
-            if "admin" not in user_roles:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Admin privileges required"
-                )
-            
-            return current_user
-        
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Admin check failed: {str(e)}"
-            )
-    
-    return check_admin
+    global _admin_roles_dependency
+    if _admin_roles_dependency is None:
+        _admin_roles_dependency = require_roles(["admin"])
+    return _admin_roles_dependency
 
 
 def require_any_scope(allowed_scopes: List[str]):
