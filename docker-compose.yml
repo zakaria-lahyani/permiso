@@ -1,211 +1,154 @@
+# Main Docker Compose file for Permiso Authentication System
+# Use with environment-specific override files for different deployments
+version: '3.8'
+
 services:
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
     container_name: permiso-postgres
     environment:
-      POSTGRES_DB: permiso
-      POSTGRES_USER: permiso
-      POSTGRES_PASSWORD: permiso_password
-      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
+      POSTGRES_DB: ${POSTGRES_DB:-permiso}
+      POSTGRES_USER: ${POSTGRES_USER:-permiso}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-permiso_password}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U permiso -d permiso"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-permiso} -d ${POSTGRES_DB:-permiso}"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 30s
     networks:
       - permiso-network
+    restart: unless-stopped
 
   # Redis Cache
   redis:
     image: redis:7-alpine
     container_name: permiso-redis
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_data:/data
-      - ./docker/redis/redis.conf:/usr/local/etc/redis/redis.conf
+      - ./docker/configs/redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
     command: redis-server /usr/local/etc/redis/redis.conf
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 10s
     networks:
       - permiso-network
+    restart: unless-stopped
 
-  # Test Database (separate from main)
-  postgres-test:
-    image: postgres:15-alpine
-    container_name: permiso-postgres-test
-    environment:
-      POSTGRES_DB: permiso_test
-      POSTGRES_USER: permiso_test
-      POSTGRES_PASSWORD: permiso_test_password
-      POSTGRES_INITDB_ARGS: "--encoding=UTF-8"
-    ports:
-      - "5433:5432"
-    volumes:
-      - postgres_test_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U permiso_test -d permiso_test"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - permiso-network
-
-  # Test Redis (separate from main)
-  redis-test:
-    image: redis:7-alpine
-    container_name: permiso-redis-test
-    ports:
-      - "6380:6379"
-    volumes:
-      - redis_test_data:/data
-    command: redis-server --appendonly yes
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - permiso-network
-
-  # Development/Test Runner Container
-  permiso-dev:
+  # Application Service
+  app:
     build:
       context: .
-      dockerfile: docker/Dockerfile.dev
-    container_name: permiso-dev
-    volumes:
-      # Mount the entire project for live development
-      - .:/app
-      # Mount Python cache to speed up installs
-      - python_cache:/root/.cache/pip
-      - poetry_cache:/root/.cache/pypoetry
-    working_dir: /app
+      dockerfile: Dockerfile
+      target: ${BUILD_TARGET:-production}
+      args:
+        INSTALL_DEV: ${INSTALL_DEV:-false}
+    container_name: permiso-app
     environment:
-      # Development environment
-      ENVIRONMENT: development
-      DEBUG: "true"
+      # Application settings
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      DEBUG: ${DEBUG:-false}
       
       # Database configuration
-      DATABASE_URL: postgresql+asyncpg://permiso:permiso_password@postgres:5432/permiso
-      
-      # Test database configuration
-      TEST_DATABASE_URL: postgresql+asyncpg://permiso_test:permiso_test_password@postgres-test:5432/permiso_test
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-permiso}:${POSTGRES_PASSWORD:-permiso_password}@postgres:5432/${POSTGRES_DB:-permiso}
+      DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-20}
+      DATABASE_MAX_OVERFLOW: ${DATABASE_MAX_OVERFLOW:-10}
+      DATABASE_ECHO: ${DATABASE_ECHO:-false}
       
       # Redis configuration
-      REDIS_URL: redis://redis:6379/0
-      TEST_REDIS_URL: redis://redis-test:6379/0
+      REDIS_URL: redis://redis:6379/${REDIS_DB:-0}
       
       # JWT configuration
-      JWT_SECRET_KEY: dev-secret-key-change-in-production
-      ACCESS_TOKEN_EXPIRE_MINUTES: 15
-      REFRESH_TOKEN_EXPIRE_DAYS: 30
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-15}
+      REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
       
-      # Python configuration
-      PYTHONPATH: /app
-      PYTHONUNBUFFERED: 1
-      PYTHONDONTWRITEBYTECODE: 1
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      postgres-test:
-        condition: service_healthy
-      redis-test:
-        condition: service_healthy
-    networks:
-      - permiso-network
-    # Keep container running for interactive development
-    tty: true
-    stdin_open: true
-
-  # Test Runner Container (for CI/automated testing)
-  permiso-test:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.test
-    container_name: permiso-test
-    volumes:
-      - .:/app
-      - test_reports:/app/test-reports
-      - coverage_reports:/app/htmlcov
-    working_dir: /app
-    environment:
-      ENVIRONMENT: testing
-      DEBUG: "true"
-      DATABASE_URL: postgresql+asyncpg://permiso_test:permiso_test_password@postgres-test:5432/permiso_test
-      REDIS_URL: redis://redis-test:6379/1
-      JWT_SECRET_KEY: test-secret-key-for-testing-32chars-only
-      PYTHONPATH: /app
-      PYTHONUNBUFFERED: 1
-      PYTHONDONTWRITEBYTECODE: 1
-    depends_on:
-      postgres-test:
-        condition: service_healthy
-      redis-test:
-        condition: service_healthy
-    networks:
-      - permiso-network
-    profiles:
-      - test
-
-  # Application Container (for production-like testing)
-  permiso-app:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.app
-    container_name: permiso-app
+      # Security settings
+      PASSWORD_MIN_LENGTH: ${PASSWORD_MIN_LENGTH:-8}
+      PASSWORD_REQUIRE_UPPERCASE: ${PASSWORD_REQUIRE_UPPERCASE:-true}
+      PASSWORD_REQUIRE_LOWERCASE: ${PASSWORD_REQUIRE_LOWERCASE:-true}
+      PASSWORD_REQUIRE_DIGITS: ${PASSWORD_REQUIRE_DIGITS:-true}
+      PASSWORD_REQUIRE_SPECIAL: ${PASSWORD_REQUIRE_SPECIAL:-true}
+      
+      # Rate limiting
+      RATE_LIMIT_LOGIN: ${RATE_LIMIT_LOGIN:-5/minute}
+      RATE_LIMIT_REGISTER: ${RATE_LIMIT_REGISTER:-3/hour}
+      RATE_LIMIT_API: ${RATE_LIMIT_API:-100/minute}
+      
+      # CORS settings
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-[]}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-[]}
+      
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+      
+      # API Documentation (disabled in production)
+      DOCS_URL: ${DOCS_URL:-}
+      REDOC_URL: ${REDOC_URL:-}
+      OPENAPI_URL: ${OPENAPI_URL:-}
     ports:
-      - "8000:8000"
-    volumes:
-      - .:/app
-    working_dir: /app
-    environment:
-      ENVIRONMENT: development
-      DEBUG: "true"
-      DATABASE_URL: postgresql+asyncpg://permiso:permiso_password@postgres:5432/permiso
-      REDIS_URL: redis://redis:6379/0
-      JWT_SECRET_KEY: dev-secret-key-change-in-production
-      PYTHONPATH: /app
-      PYTHONUNBUFFERED: 1
+      - "${APP_PORT:-8000}:8000"
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+    volumes:
+      - app_logs:/app/logs
     networks:
       - permiso-network
-    profiles:
-      - app
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
+  # Database Migration Service
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: migration
+    container_name: permiso-migrate
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-permiso}:${POSTGRES_PASSWORD:-permiso_password}@postgres:5432/${POSTGRES_DB:-permiso}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - permiso-network
+    restart: "no"
+
+# Named volumes for data persistence
 volumes:
   postgres_data:
     driver: local
   redis_data:
     driver: local
-  postgres_test_data:
-    driver: local
-  redis_test_data:
-    driver: local
-  python_cache:
-    driver: local
-  poetry_cache:
-    driver: local
-  test_reports:
-    driver: local
-  coverage_reports:
+  app_logs:
     driver: local
 
+# Network for service communication
 networks:
   permiso-network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

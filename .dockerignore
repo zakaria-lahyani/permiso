@@ -1,4 +1,4 @@
-# Docker ignore file for permiso Authentication System
+# Docker ignore file for Permiso Authentication System - Optimized
 
 # Git
 .git
@@ -29,7 +29,7 @@ wheels/
 MANIFEST
 
 # Virtual environments
-.env
+.env*
 .venv
 env/
 venv/
@@ -38,14 +38,16 @@ env.bak/
 venv.bak/
 .python-version
 
-# IDEs
+# IDEs and editors
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+.vim/
+.emacs.d/
 
-# OS
+# OS generated files
 .DS_Store
 .DS_Store?
 ._*
@@ -53,8 +55,9 @@ venv.bak/
 .Trashes
 ehthumbs.db
 Thumbs.db
+desktop.ini
 
-# Testing
+# Testing and coverage
 .coverage
 .pytest_cache/
 .tox/
@@ -65,20 +68,23 @@ coverage.xml
 *.cover
 .hypothesis/
 test-reports/
+.nyc_output
 
-# Documentation
+# Documentation builds
 docs/_build/
 .readthedocs.yml
+site/
 
 # Logs
 *.log
 logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# Database
+# Database files
 *.db
 *.sqlite3
-
-# Redis
 dump.rdb
 
 # Node.js (if any frontend assets)
@@ -91,43 +97,147 @@ yarn-error.log*
 *.tmp
 *.temp
 .cache/
+.parcel-cache/
 
-# Docker
+# Docker files (don't include in image)
 Dockerfile*
 docker-compose*.yml
-.dockerignore
+.dockerignore*
 
-# CI/CD
+# CI/CD files
 .github/
 .gitlab-ci.yml
 .travis.yml
 .circleci/
+azure-pipelines.yml
+Jenkinsfile
 
-# Local environment files
+# Environment files (security)
 .env.local
 .env.development
 .env.test
 .env.production
+.env.prod
+.env.dev
 
 # Backup files
 *.bak
 *.backup
+*.orig
 
 # Archive files
 *.zip
 *.tar.gz
 *.rar
+*.7z
 
-# Large files that shouldn't be in containers
+# Large files
 *.iso
 *.dmg
 *.pkg
+*.deb
+*.rpm
 
-# Development scripts
-scripts/
+# Development and deployment scripts
+scripts/deploy.py
+scripts/build.*
+scripts/test.*
+
+# Documentation that shouldn't be in container
 DOCKER_GUIDE.md
 ARCHITECTURE*.md
 PROJECT_STRUCTURE*.md
 IMPLEMENTATION_STATUS.md
 SECURITY_DEPLOYMENT_GUIDE.md
 TESTING_GUIDE.md
+# README.md
+CHANGELOG.md
+CONTRIBUTING.md
+LICENSE
+
+# Data directories (should be mounted as volumes)
+data/
+backups/
+
+# SSL certificates (should be mounted securely)
+ssl/
+certs/
+*.pem
+*.key
+*.crt
+
+# Kubernetes and cloud deployment files
+k8s/
+kubernetes/
+helm/
+terraform/
+ansible/
+
+# Monitoring and observability configs (mounted separately)
+prometheus/
+grafana/
+jaeger/
+
+# Local development overrides
+docker-compose.dev.yml
+docker-compose.local.yml
+
+# IDE specific files
+.vscode/settings.json
+.idea/workspace.xml
+*.sublime-project
+*.sublime-workspace
+
+# MacOS specific
+.AppleDouble
+.LSOverride
+Icon?
+
+# Windows specific
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux specific
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# pipenv
+Pipfile.lock
+
+# Poetry (keep pyproject.toml and poetry.lock)
+# poetry.lock should be included for reproducible builds
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath parsed files
+*.sage.py
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Rope project settings
+.ropeproject
+
+# mkdocs documentation
+/site
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Pyre type checker
+.pyre/

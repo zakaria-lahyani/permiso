@@ -1,80 +1,73 @@
+# Production override for Docker Compose
+# Use with: docker-compose -f docker-compose.new.yml -f docker-compose.prod.yml
 version: '3.8'
 
 services:
-  # PostgreSQL production database
-  postgres-prod:
-    image: postgres:15-alpine
+  # Production PostgreSQL configuration
+  postgres:
     container_name: permiso-postgres-prod
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-permiso}
       POSTGRES_USER: ${POSTGRES_USER:-permiso}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_prod_data:/var/lib/postgresql/data
-      - ./scripts/init-prod-db.sql:/docker-entrypoint-initdb.d/init-prod-db.sql
+      - ./scripts/init-prod-db.sql:/docker-entrypoint-initdb.d/init-prod-db.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-permiso} -d ${POSTGRES_DB:-permiso}"]
       interval: 30s
       timeout: 10s
       retries: 3
-    networks:
-      - permiso-prod-network
-    restart: unless-stopped
+      start_period: 60s
     deploy:
       resources:
         limits:
           memory: 1G
+          cpus: '1.0'
         reservations:
           memory: 512M
+          cpus: '0.5'
 
-  # Redis production cache
-  redis-prod:
-    image: redis:7-alpine
+  # Production Redis configuration
+  redis:
     container_name: permiso-redis-prod
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
     volumes:
       - redis_prod_data:/data
-      - ./config/redis.conf:/usr/local/etc/redis/redis.conf
+      - ./docker/configs/redis/redis-prod.conf:/usr/local/etc/redis/redis.conf:ro
     command: redis-server /usr/local/etc/redis/redis.conf
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
-    networks:
-      - permiso-prod-network
-    restart: unless-stopped
+      start_period: 30s
     deploy:
       resources:
         limits:
           memory: 512M
+          cpus: '0.5'
         reservations:
           memory: 256M
+          cpus: '0.25'
 
-  # permiso application for production
-  permiso-prod:
+  # Production application configuration
+  app:
+    container_name: ""  # Explicitly remove container_name to allow replicas
     build:
-      context: .
-      dockerfile: Dockerfile
       target: production
-    container_name: permiso-app-prod
+      args:
+        INSTALL_DEV: "false"
     environment:
-      # Application settings
+      # Production settings
       ENVIRONMENT: production
       DEBUG: "false"
       
       # Database configuration
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-permiso}:${POSTGRES_PASSWORD}@postgres-prod:5432/${POSTGRES_DB:-permiso}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-permiso}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-permiso}
+      DATABASE_POOL_SIZE: ${DATABASE_POOL_SIZE:-20}
+      DATABASE_MAX_OVERFLOW: ${DATABASE_MAX_OVERFLOW:-10}
       DATABASE_ECHO: "false"
-      DATABASE_POOL_SIZE: 20
-      DATABASE_MAX_OVERFLOW: 10
       
       # Redis configuration
-      REDIS_URL: redis://redis-prod:6379/0
+      REDIS_URL: redis://redis:6379/0
       
       # JWT configuration
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
@@ -82,14 +75,14 @@ services:
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-15}
       REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
       
-      # Security settings
+      # Security settings (strict for production)
       PASSWORD_MIN_LENGTH: ${PASSWORD_MIN_LENGTH:-12}
       PASSWORD_REQUIRE_UPPERCASE: "true"
       PASSWORD_REQUIRE_LOWERCASE: "true"
       PASSWORD_REQUIRE_DIGITS: "true"
       PASSWORD_REQUIRE_SPECIAL: "true"
       
-      # Rate limiting
+      # Rate limiting (strict for production)
       RATE_LIMIT_LOGIN: ${RATE_LIMIT_LOGIN:-5/minute}
       RATE_LIMIT_REGISTER: ${RATE_LIMIT_REGISTER:-3/hour}
       RATE_LIMIT_API: ${RATE_LIMIT_API:-100/minute}
@@ -102,7 +95,7 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       LOG_FORMAT: json
       
-      # Production-specific settings
+      # API Documentation (disabled for production)
       DOCS_URL: ""
       REDOC_URL: ""
       OPENAPI_URL: ""
@@ -110,18 +103,13 @@ services:
       # Monitoring
       ENABLE_METRICS: "true"
       METRICS_PATH: /metrics
-    ports:
-      - "${APP_PORT:-8000}:8000"
-    depends_on:
-      postgres-prod:
-        condition: service_healthy
-      redis-prod:
-        condition: service_healthy
     volumes:
-      - prod_logs:/app/logs
-    networks:
-      - permiso-prod-network
-    restart: unless-stopped
+      - prod_logs:/app/logs:rw
+    healthcheck:
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     deploy:
       replicas: ${APP_REPLICAS:-2}
       resources:
@@ -131,113 +119,98 @@ services:
         reservations:
           memory: 512M
           cpus: '0.5'
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
 
-  # Production database migration service
-  permiso-migrate-prod:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: production
+  # Production migration service
+  migrate:
     container_name: permiso-migrate-prod
     environment:
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-permiso}:${POSTGRES_PASSWORD}@postgres-prod:5432/${POSTGRES_DB:-permiso}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-permiso}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-permiso}
       ENVIRONMENT: production
-    depends_on:
-      postgres-prod:
-        condition: service_healthy
-    networks:
-      - permiso-prod-network
-    command: poetry run alembic upgrade head
-    restart: "no"
 
   # Nginx reverse proxy and load balancer
-  nginx-prod:
+  nginx:
     image: nginx:alpine
     container_name: permiso-nginx-prod
     ports:
       - "${NGINX_HTTP_PORT:-80}:80"
       - "${NGINX_HTTPS_PORT:-443}:443"
     volumes:
-      - ./config/nginx.prod.conf:/etc/nginx/nginx.conf
-      - ./config/ssl:/etc/nginx/ssl
+      - ./docker/configs/nginx/nginx-prod.conf:/etc/nginx/nginx.conf:ro
+      - ./docker/configs/nginx/ssl:/etc/nginx/ssl:ro
       - nginx_logs:/var/log/nginx
     depends_on:
-      - permiso-prod
+      - app
     networks:
-      - permiso-prod-network
+      - permiso-network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     deploy:
       resources:
         limits:
           memory: 256M
+          cpus: '0.5'
         reservations:
           memory: 128M
+          cpus: '0.25'
 
-  # Prometheus monitoring
-  prometheus-prod:
-    image: prom/prometheus:latest
-    container_name: permiso-prometheus-prod
-    ports:
-      - "${PROMETHEUS_PORT:-9090}:9090"
+  # Log aggregation service
+  fluentd:
+    image: fluent/fluentd:v1.16-debian-1
+    container_name: permiso-fluentd
     volumes:
-      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-      - '--storage.tsdb.retention.time=200h'
-      - '--web.enable-lifecycle'
+      - ./docker/configs/fluentd/fluent.conf:/fluentd/etc/fluent.conf:ro
+      - prod_logs:/app/logs:ro
+      - nginx_logs:/var/log/nginx:ro
     depends_on:
-      - permiso-prod
+      - app
+      - nginx
     networks:
-      - permiso-prod-network
+      - permiso-network
     restart: unless-stopped
+    profiles:
+      - logging
 
-  # Grafana dashboards
-  grafana-prod:
-    image: grafana/grafana:latest
-    container_name: permiso-grafana-prod
-    ports:
-      - "${GRAFANA_PORT:-3000}:3000"
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./config/grafana/provisioning:/etc/grafana/provisioning
-      - ./config/grafana/dashboards:/var/lib/grafana/dashboards
-    environment:
-      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
-      GF_USERS_ALLOW_SIGN_UP: "false"
-    depends_on:
-      - prometheus-prod
-    networks:
-      - permiso-prod-network
-    restart: unless-stopped
-
+# Production-specific volumes
 volumes:
   postgres_prod_data:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${POSTGRES_DATA_PATH:-./data/postgres}
   redis_prod_data:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${REDIS_DATA_PATH:-./data/redis}
   prod_logs:
     driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${LOGS_PATH:-./logs}
   nginx_logs:
     driver: local
-  prometheus_data:
-    driver: local
-  grafana_data:
-    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${NGINX_LOGS_PATH:-./logs/nginx}
 
+# Production network with custom subnet
 networks:
-  permiso-prod-network:
+  permiso-network:
     driver: bridge
     ipam:
       config:
         - subnet: 172.20.0.0/16
+          gateway: 172.20.0.1

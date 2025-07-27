@@ -1,71 +1,51 @@
+# Development override for Docker Compose
+# This file is automatically loaded by docker-compose for local development
 version: '3.8'
 
 services:
-  # PostgreSQL development database
-  postgres-dev:
-    image: postgres:15-alpine
-    container_name: permiso-postgres-dev
+  # Development-specific PostgreSQL configuration
+  postgres:
     environment:
       POSTGRES_DB: permiso_dev
       POSTGRES_USER: permiso_dev
       POSTGRES_PASSWORD: permiso_dev_password
-      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
-    ports:
-      - "5432:5432"
     volumes:
       - postgres_dev_data:/var/lib/postgresql/data
-      - ./scripts/init-dev-db.sql:/docker-entrypoint-initdb.d/init-dev-db.sql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U permiso_dev -d permiso_dev"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - permiso-dev-network
+      - ./scripts/init-dev-db.sql:/docker-entrypoint-initdb.d/init-dev-db.sql:ro
 
-  # Redis development cache
-  redis-dev:
-    image: redis:7-alpine
-    container_name: permiso-redis-dev
-    ports:
-      - "6379:6379"
+  # Development-specific Redis configuration
+  redis:
     volumes:
       - redis_dev_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - permiso-dev-network
 
-  # permiso application for development
-  permiso-dev:
+  # Development application configuration
+  app:
     build:
-      context: .
-      dockerfile: Dockerfile
       target: development
-    container_name: permiso-app-dev
+      args:
+        INSTALL_DEV: "true"
     environment:
-      # Application settings
+      # Development settings
       ENVIRONMENT: development
       DEBUG: "true"
       
       # Database configuration
-      DATABASE_URL: postgresql+asyncpg://permiso_dev:permiso_dev_password@postgres-dev:5432/permiso_dev
+      DATABASE_URL: postgresql+asyncpg://permiso_dev:permiso_dev_password@postgres:5432/permiso_dev
       DATABASE_ECHO: "true"
       
-      # Redis configuration
-      REDIS_URL: redis://redis-dev:6379/0
-      
-      # JWT configuration
+      # JWT configuration (relaxed for development)
       JWT_SECRET_KEY: dev-secret-key-not-for-production
-      JWT_ALGORITHM: HS256
       ACCESS_TOKEN_EXPIRE_MINUTES: 60
       REFRESH_TOKEN_EXPIRE_DAYS: 30
       
       # Security settings (relaxed for development)
       PASSWORD_MIN_LENGTH: 6
+      PASSWORD_REQUIRE_UPPERCASE: "false"
+      PASSWORD_REQUIRE_LOWERCASE: "false"
+      PASSWORD_REQUIRE_DIGITS: "false"
+      PASSWORD_REQUIRE_SPECIAL: "false"
+      
+      # Rate limiting (relaxed for development)
       RATE_LIMIT_LOGIN: 1000/minute
       RATE_LIMIT_REGISTER: 1000/hour
       RATE_LIMIT_API: 10000/minute
@@ -78,25 +58,18 @@ services:
       LOG_LEVEL: DEBUG
       LOG_FORMAT: text
       
-      # Development-specific settings
+      # API Documentation (enabled for development)
       DOCS_URL: /docs
       REDOC_URL: /redoc
       OPENAPI_URL: /openapi.json
-    ports:
-      - "8000:8000"
-    depends_on:
-      postgres-dev:
-        condition: service_healthy
-      redis-dev:
-        condition: service_healthy
     volumes:
-      - .:/app
+      # Mount source code for hot reload
+      - .:/app:cached
       - dev_logs:/app/logs
-    networks:
-      - permiso-dev-network
+      - dev_cache:/app/.cache
     command: >
       sh -c "
-        echo 'Waiting for services to be ready...' &&
+        echo 'Waiting for database to be ready...' &&
         sleep 5 &&
         echo 'Running database migrations...' &&
         poetry run alembic upgrade head &&
@@ -104,29 +77,16 @@ services:
         poetry run uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload --log-level debug
       "
 
-  # Development database migration service
-  permiso-migrate-dev:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: development
-    container_name: permiso-migrate-dev
+  # Development migration service
+  migrate:
     environment:
-      DATABASE_URL: postgresql+asyncpg://permiso_dev:permiso_dev_password@postgres-dev:5432/permiso_dev
+      DATABASE_URL: postgresql+asyncpg://permiso_dev:permiso_dev_password@postgres:5432/permiso_dev
       ENVIRONMENT: development
-    depends_on:
-      postgres-dev:
-        condition: service_healthy
-    volumes:
-      - .:/app
-    networks:
-      - permiso-dev-network
-    command: poetry run alembic upgrade head
 
   # pgAdmin for database management (development only)
-  pgadmin-dev:
+  pgadmin:
     image: dpage/pgadmin4:latest
-    container_name: permiso-pgadmin-dev
+    container_name: permiso-pgadmin
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@permiso.dev
       PGADMIN_DEFAULT_PASSWORD: admin123
@@ -134,35 +94,38 @@ services:
     ports:
       - "5050:80"
     volumes:
-      - pgadmin_dev_data:/var/lib/pgadmin
+      - pgadmin_data:/var/lib/pgadmin
     depends_on:
-      - postgres-dev
+      - postgres
     networks:
-      - permiso-dev-network
+      - permiso-network
+    profiles:
+      - tools
 
   # Redis Commander for Redis management (development only)
-  redis-commander-dev:
+  redis-commander:
     image: rediscommander/redis-commander:latest
-    container_name: permiso-redis-commander-dev
+    container_name: permiso-redis-commander
     environment:
-      REDIS_HOSTS: local:redis-dev:6379
+      REDIS_HOSTS: local:redis:6379
     ports:
       - "8081:8081"
     depends_on:
-      - redis-dev
+      - redis
     networks:
-      - permiso-dev-network
+      - permiso-network
+    profiles:
+      - tools
 
+# Development-specific volumes
 volumes:
   postgres_dev_data:
     driver: local
   redis_dev_data:
     driver: local
-  pgadmin_dev_data:
-    driver: local
   dev_logs:
     driver: local
-
-networks:
-  permiso-dev-network:
-    driver: bridge
+  dev_cache:
+    driver: local
+  pgadmin_data:
+    driver: local

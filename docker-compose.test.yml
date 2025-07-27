@@ -1,71 +1,61 @@
+# Testing override for Docker Compose
+# Use with: docker-compose -f docker-compose.new.yml -f docker-compose.test.yml
 version: '3.8'
 
 services:
-  # PostgreSQL test database
-  postgres-test:
-    image: postgres:15-alpine
+  # Test-specific PostgreSQL configuration
+  postgres:
     container_name: permiso-postgres-test
     environment:
       POSTGRES_DB: permiso_test
       POSTGRES_USER: permiso_test
       POSTGRES_PASSWORD: permiso_test_password
-      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
     ports:
       - "5433:5432"
     volumes:
       - postgres_test_data:/var/lib/postgresql/data
-      - ./scripts/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U permiso_test -d permiso_test"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - permiso-test-network
+      - ./scripts/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
 
-  # Redis test cache
-  redis-test:
-    image: redis:7-alpine
+  # Test-specific Redis configuration
+  redis:
     container_name: permiso-redis-test
     ports:
       - "6380:6379"
     volumes:
       - redis_test_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - permiso-test-network
 
-  # permiso application for testing
-  permiso-test:
+  # Testing application configuration
+  app:
     build:
-      context: .
-      dockerfile: Dockerfile
       target: testing
+      args:
+        INSTALL_DEV: "true"
     container_name: permiso-app-test
     environment:
-      # Application settings
+      # Testing settings
       ENVIRONMENT: testing
       DEBUG: "true"
       
       # Database configuration
-      DATABASE_URL: postgresql+asyncpg://permiso_test:permiso_test_password@postgres-test:5432/permiso_test
+      DATABASE_URL: postgresql+asyncpg://permiso_test:permiso_test_password@postgres:5432/permiso_test
       DATABASE_ECHO: "false"
       
       # Redis configuration
-      REDIS_URL: redis://redis-test:6379/0
+      REDIS_URL: redis://redis:6379/1
       
       # JWT configuration
-      JWT_SECRET_KEY: test-secret-key-for-testing-only
-      JWT_ALGORITHM: HS256
+      JWT_SECRET_KEY: test-secret-key-for-testing-only-32chars
       ACCESS_TOKEN_EXPIRE_MINUTES: 15
       REFRESH_TOKEN_EXPIRE_DAYS: 7
       
       # Security settings (relaxed for testing)
       PASSWORD_MIN_LENGTH: 6
+      PASSWORD_REQUIRE_UPPERCASE: "false"
+      PASSWORD_REQUIRE_LOWERCASE: "false"
+      PASSWORD_REQUIRE_DIGITS: "false"
+      PASSWORD_REQUIRE_SPECIAL: "false"
+      
+      # Rate limiting (relaxed for testing)
       RATE_LIMIT_LOGIN: 1000/minute
       RATE_LIMIT_REGISTER: 1000/hour
       RATE_LIMIT_API: 10000/minute
@@ -80,45 +70,76 @@ services:
       
       # Test-specific settings
       PYTEST_CURRENT_TEST: "true"
-    depends_on:
-      postgres-test:
-        condition: service_healthy
-      redis-test:
-        condition: service_healthy
+      
+      # API Documentation (disabled for testing)
+      DOCS_URL: ""
+      REDOC_URL: ""
+      OPENAPI_URL: ""
     volumes:
-      - .:/app
+      - .:/app:cached
       - test_coverage:/app/htmlcov
-    networks:
-      - permiso-test-network
+      - test_reports:/app/test-reports
     command: >
       sh -c "
-        echo 'Waiting for services to be ready...' &&
+        echo 'Waiting for test services to be ready...' &&
         sleep 5 &&
         echo 'Running database migrations...' &&
         poetry run alembic upgrade head &&
         echo 'Starting test execution...' &&
-        poetry run pytest tests/ -v --tb=short --cov=app --cov-report=term-missing --cov-report=html --cov-fail-under=80 --maxfail=5
+        poetry run pytest tests/ -v --tb=short --cov=app --cov-report=term-missing --cov-report=html --cov-fail-under=80 --maxfail=5 --junitxml=/app/test-reports/junit.xml
       "
+    profiles:
+      - test
 
-  # Test database migration service
-  permiso-migrate-test:
+  # Test migration service
+  migrate:
+    container_name: permiso-migrate-test
+    environment:
+      DATABASE_URL: postgresql+asyncpg://permiso_test:permiso_test_password@postgres:5432/permiso_test
+      ENVIRONMENT: testing
+
+  # Test runner service for CI/CD
+  test-runner:
     build:
       context: .
       dockerfile: Dockerfile
       target: testing
-    container_name: permiso-migrate-test
+      args:
+        INSTALL_DEV: "true"
+    container_name: permiso-test-runner
     environment:
-      DATABASE_URL: postgresql+asyncpg://permiso_test:permiso_test_password@postgres-test:5432/permiso_test
       ENVIRONMENT: testing
+      DATABASE_URL: postgresql+asyncpg://permiso_test:permiso_test_password@postgres:5432/permiso_test
+      REDIS_URL: redis://redis:6379/1
+      JWT_SECRET_KEY: test-secret-key-for-testing-only-32chars
+      PYTHONPATH: /app
     depends_on:
-      postgres-test:
+      postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     volumes:
-      - .:/app
+      - .:/app:cached
+      - test_coverage:/app/htmlcov
+      - test_reports:/app/test-reports
     networks:
-      - permiso-test-network
-    command: poetry run alembic upgrade head
+      - permiso-network
+    profiles:
+      - test
+    command: >
+      sh -c "
+        echo 'Running database migrations...' &&
+        poetry run alembic upgrade head &&
+        echo 'Running comprehensive test suite...' &&
+        poetry run pytest tests/ -v --tb=short --cov=app --cov-report=term-missing --cov-report=html --cov-report=xml --cov-fail-under=80 --junitxml=/app/test-reports/junit.xml &&
+        echo 'Running security tests...' &&
+        poetry run pytest tests/security/ -v &&
+        echo 'Running performance tests...' &&
+        poetry run pytest tests/performance/ -v -m 'not slow' &&
+        echo 'All tests completed successfully!'
+      "
 
+# Test-specific volumes
 volumes:
   postgres_test_data:
     driver: local
@@ -126,7 +147,5 @@ volumes:
     driver: local
   test_coverage:
     driver: local
-
-networks:
-  permiso-test-network:
-    driver: bridge
+  test_reports:
+    driver: local
