@@ -284,9 +284,19 @@ class Role(BaseModel):
         return hash((self.name, self.id))
 
     @classmethod
-    def get_default_roles(cls) -> List[dict]:
+    def get_default_roles(cls) -> List[str]:
         """
-        Get list of default role definitions.
+        Get list of default role names.
+        
+        Returns:
+            List of default role names
+        """
+        return ["user", "admin", "trader", "service"]
+    
+    @classmethod
+    def get_default_role_definitions(cls) -> List[dict]:
+        """
+        Get list of default role definitions with descriptions.
         
         Returns:
             List of default role dictionaries

@@ -302,15 +302,15 @@ class TestRoleModel:
         
         # Test has_scope
         await db_session.refresh(role)
-        assert await role.has_scope("read:test") is False
+        assert role.has_scope("read:test") is False
         
         # Add scope
         role.scopes.append(scope1)
         await db_session.commit()
         await db_session.refresh(role)
         
-        assert await role.has_scope("read:test") is True
-        assert await role.has_scope("write:test") is False
+        assert role.has_scope("read:test") is True
+        assert role.has_scope("write:test") is False
         
         # Test get_scope_names
         scope_names = role.get_scope_names()
