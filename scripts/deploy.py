@@ -138,21 +138,21 @@ class DockerDeployer:
         """Build the complete Docker Compose command"""
         config = self.environments[environment]
         compose_cmd = self._get_compose_command()
-        
-        # Add compose files
-        for compose_file in config['compose_files']:
-            compose_cmd.extend(['-f', str(self.project_root / compose_file)])
-        
-        # Add environment file if it exists
+
+        # Add environment file FIRST (before -f flags)
         env_file = self.project_root / config['env_file']
         if env_file.exists():
             compose_cmd.extend(['--env-file', str(env_file)])
-        
-        # Add the actual command
+
+        # Then add compose files
+        for compose_file in config['compose_files']:
+            compose_cmd.extend(['-f', str(self.project_root / compose_file)])
+
+        # Finally add the command itself
         compose_cmd.extend(command)
-        
+
         return compose_cmd
-    
+        
     def build(self, environment: str, no_cache: bool = False, pull: bool = False) -> bool:
         """Build Docker images for the specified environment"""
         self.logger.info(f"Building Docker images for {environment} environment...")

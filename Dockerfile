@@ -14,7 +14,9 @@ ENV PYTHONUNBUFFERED=1 \
     POETRY_NO_INTERACTION=1 \
     POETRY_VENV_IN_PROJECT=1 \
     POETRY_CACHE_DIR=/tmp/poetry_cache \
-    POETRY_VIRTUALENVS_PATH=/app/.venv
+    POETRY_VIRTUALENVS_PATH=/app/.venv \
+    POETRY_VIRTUALENVS_CREATE=true \
+    POETRY_VIRTUALENVS_IN_PROJECT=true
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
