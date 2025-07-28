@@ -15,10 +15,15 @@ class CustomEnvSettingsSource(EnvSettingsSource):
     
     def prepare_field_value(self, field_name: str, field, raw_value, value_is_complex: bool):
         """Override to handle list fields without JSON parsing."""
-        if field_name in ('ALLOWED_HOSTS', 'CORS_ORIGINS') and isinstance(raw_value, str):
+        if field_name in ('ALLOWED_HOSTS', 'CORS_ORIGINS', 'ALLOWED_ORIGINS') and isinstance(raw_value, str):
             # Handle list fields as comma-separated strings
             if not raw_value.strip():
-                return [] if field_name == 'CORS_ORIGINS' else ["localhost", "127.0.0.1", "*"]
+                if field_name == 'CORS_ORIGINS':
+                    return []
+                elif field_name == 'ALLOWED_ORIGINS':
+                    return ["http://localhost:3000", "http://localhost:8080"]
+                else:  # ALLOWED_HOSTS
+                    return ["localhost", "127.0.0.1", "*"]
             return [item.strip() for item in raw_value.split(',') if item.strip()]
         
         # For other fields, use the default behavior
@@ -226,9 +231,8 @@ class Settings(BaseSettings):
         """Customize settings sources to handle list fields properly."""
         return (
             init_settings,
-            dotenv_settings,  # ✅ .env values loaded here first
-            CustomEnvSettingsSource(settings_cls),  # ✅ Then parsed as needed
-            env_settings,
+            CustomEnvSettingsSource(settings_cls),  # ✅ Custom source handles all env vars
+            dotenv_settings,  # ✅ .env values loaded here
             file_secret_settings,
         )
 
