@@ -1,0 +1,25 @@
+# Permiso Functional Test Suite Dependencies
+
+# Core testing framework
+pytest>=7.4.0
+pytest-html>=3.2.0
+pytest-json-report>=1.5.0
+pytest-xdist>=3.3.0
+pytest-timeout>=2.1.0
+
+# HTTP client libraries
+requests>=2.31.0
+urllib3>=1.26.0
+
+# Data validation and utilities
+pydantic>=2.0.0
+python-dotenv>=1.0.0
+
+# Docker integration for container health checks
+docker>=6.1.0
+
+# Utilities for test data generation
+faker>=19.0.0
+
+# Colored output for better test reporting
+colorama>=0.4.6
