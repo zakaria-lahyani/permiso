@@ -226,8 +226,9 @@ class Settings(BaseSettings):
         """Customize settings sources to handle list fields properly."""
         return (
             init_settings,
-            CustomEnvSettingsSource(settings_cls),
-            dotenv_settings,
+            dotenv_settings,  # ✅ .env values loaded here first
+            CustomEnvSettingsSource(settings_cls),  # ✅ Then parsed as needed
+            env_settings,
             file_secret_settings,
         )
 

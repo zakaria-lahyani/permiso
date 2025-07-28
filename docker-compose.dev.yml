@@ -1,6 +1,5 @@
 # Development override for Docker Compose
 # This file is automatically loaded by docker-compose for local development
-version: '3.8'
 
 services:
   # Development-specific PostgreSQL configuration

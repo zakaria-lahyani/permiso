@@ -1,6 +1,5 @@
 # Testing override for Docker Compose
-# Use with: docker-compose -f docker-compose.new.yml -f docker-compose.test.yml
-version: '3.8'
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.test.yml
 
 services:
   # Test-specific PostgreSQL configuration

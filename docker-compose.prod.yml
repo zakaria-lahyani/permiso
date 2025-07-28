@@ -1,6 +1,5 @@
 # Production override for Docker Compose
-# Use with: docker-compose -f docker-compose.new.yml -f docker-compose.prod.yml
-version: '3.8'
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.prod.yml
 
 services:
   # Production PostgreSQL configuration
@@ -33,7 +32,12 @@ services:
     volumes:
       - redis_prod_data:/data
       - ./docker/configs/redis/redis-prod.conf:/usr/local/etc/redis/redis.conf:ro
-    command: redis-server /usr/local/etc/redis/redis.conf
+    command: redis-server /usr/local/etc/redis/redis.conf --requirepass ${REDIS_PASSWORD}
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_DB=${REDIS_DB}
+      - REDIS_PORT=${REDIS_PORT}
+    
     healthcheck:
       interval: 30s
       timeout: 10s
@@ -68,7 +72,7 @@ services:
       DATABASE_ECHO: "false"
       
       # Redis configuration
-      REDIS_URL: redis://redis:6379/0
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:${REDIS_PORT}/${REDIS_DB}
       
       # JWT configuration
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
@@ -141,7 +145,7 @@ services:
       DATABASE_ECHO: "false"
       
       # Redis configuration
-      REDIS_URL: redis://redis:6379/0
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:${REDIS_PORT}/${REDIS_DB}
       
       # JWT configuration
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
